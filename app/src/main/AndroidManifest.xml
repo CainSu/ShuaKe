@@ -16,9 +16,15 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name=".ShuaActivity">
-        </activity>
+        <activity android:name=".ShuaActivity"/>
+
+        <service android:name=".ChaoXing">
+            <intent-filter>
+                <action android:name="com.test.ChaoXing"/>
+            </intent-filter>
+        </service>
     </application>
+
     <uses-permission android:name="android.permission.INTERNET"/>
 
 </manifest>

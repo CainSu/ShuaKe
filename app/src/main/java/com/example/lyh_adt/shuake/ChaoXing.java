@@ -1,8 +1,11 @@
 package com.example.lyh_adt.shuake;
 
+import android.app.IntentService;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.media.MediaCodec;
+import android.os.Bundle;
 import android.util.Log;
 
 import java.io.BufferedReader;
@@ -21,8 +24,11 @@ import java.net.URI;
 import java.net.URL;
 import java.net.URLConnection;
 import java.security.MessageDigest;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -33,20 +39,31 @@ import static java.util.regex.Pattern.compile;
  * Created by 10439 on 2018/3/21/0021.
  */
 
-public class ChaoXing implements Serializable {
+public class ChaoXing extends IntentService implements Serializable {
     private Bitmap bitmap=null;//验证码
     private String username=null;//用户名
     private CookieManager cookieManager = new CookieManager( null, CookiePolicy.ACCEPT_ALL );
-    private String myCookies = null;
-    private LinkedList<String> courseList=new LinkedList<String>();//课程名称
-    private LinkedList<String> courseLinks=new LinkedList<String>();//课程链接
     private boolean flag=false;
     private LinkedList<String> missionlinks = new LinkedList<String>();//章节内的任务链接
     private LinkedList<String>missionList= new LinkedList<String>();//任务标题
 
 
     public ChaoXing(){
+        super("ChaoXing");
         CookieHandler.setDefault(cookieManager);
+    }
+
+    @Override
+    protected void onHandleIntent(Intent intent){
+        Log.i("ADT","ChaoxingonHandleIntent");
+        Bundle bundle = intent.getExtras();
+        Character action = bundle.getChar("param");
+        if (action.equals('s'))
+        {
+            Log.i("ADT","开始");
+
+            start(bundle.getInt("startindex"),bundle.getString("myCookies"),(ArrayList<String>) bundle.getSerializable("courseLinks"));
+        }
     }
 
 
@@ -147,7 +164,11 @@ public class ChaoXing implements Serializable {
         return username;
     }
 
-    public LinkedList<String> getCourseList(){
+    public Map<String,LinkedList<String>> getCourseList(final String myCookies){
+        final LinkedList<String> courseLinks = new LinkedList<String>();
+        final LinkedList<String> courseList = new LinkedList<String>();
+        Map<String,LinkedList<String>> map = new HashMap<String,LinkedList<String>>();
+        Log.i("ADT","getCourseList"+flag);
         //final LinkedList<String> CourseList=null;
 
 
@@ -183,7 +204,7 @@ public class ChaoXing implements Serializable {
                         Matcher m = Pattern.compile("<div class=\"Mconright httpsClass\">[\\n\\s]*<h3 class=\"clearfix\" >[\\n\\s]*<a  href='([\\w\\/?=&]*)'[\\n\\s]*target=\"_blank\" title=\"([\\u4e00-\\u9fa5()（）\\w-]*)\">").matcher(resp);
                         while (m.find()){
                             //Log.i("ADT","total:"+m.groupCount());
-                            //Log.i("ADT","link:"+m.group(1)+"title:"+m.group(2));
+                            Log.i("ADT","link:"+m.group(1)+"title:"+m.group(2));
                             courseLinks.add("https://mooc1-2.chaoxing.com"+m.group(1));
                             courseList.add(m.group(2));
                         }
@@ -199,7 +220,9 @@ public class ChaoXing implements Serializable {
 
         while(flag == false);
         flag = false;
-        return courseList;
+        map.put("courseList",courseList);
+        map.put("courseLinks",courseLinks);
+        return map;
     }
 
     public String getCoookies(){
@@ -208,48 +231,23 @@ public class ChaoXing implements Serializable {
         Log.i("ADT","URIString="+uri.toString());
         Log.i("ADT","newCookies"+cookies.toString());
 
-        return cookies.toString();
+        return cookies.toString().substring(1,cookies.toString().lastIndexOf(']')).replace(',',';');
 
     }
 
-    public int setCookies(String coostr){
-        coostr = coostr.substring(1,coostr.lastIndexOf(']'));
-        //Log.i("ADT","substring = "+coostr);
-        myCookies = coostr.replace(',',';');
-        String[] cookies = coostr.split(",");
-        try{
-
-                for (String cookie : cookies){
-                String[] cok = cookie.split("=");
-                //Log.i("ADT","name="+cok[0]+"value="+cok[1]);
-                HttpCookie c = new HttpCookie(cok[0],cok[1].intern());
-                c.setVersion(0);
-                Log.i("ADT","c="+c.toString());
-                cookieManager.getCookieStore().add(new URI("http://passport2.chaoxing.com"),c);
-                cookieManager.getCookieStore().add(new URI("http://i.mooc.chaoxing.com"),c);
-                }
-        }catch (Exception e){
-            e.printStackTrace();
-        }
-        //Log.i("ADT","thecookies="+cookieManager.getCookieStore().getCookies().toString());
-        //Log.i("ADT","thecookies="+cookieManager.getCookieStore().getURIs().toString());
-        return 0;
-    }
-
-    public void start(int m){
+    public void start(int m,final String myCookies,ArrayList<String> courseLinks){
 
         Log.i("ADT","m="+m);
-
         //进入章节目录寻找未完成的任务
-        findmission(courseLinks.get(m));
+        Log.i("ADT","courseLinsk is Empty"+courseLinks.isEmpty());
+        findmission(courseLinks.get(m),myCookies);
         for (int i=0;i<courseLinks.size();i+=1){
-            play(missionlinks.get(i));
+            play(missionlinks.get(i),myCookies);
             break;
         }
-
     }
 
-    private LinkedList<String> findmission(final String url){
+    private LinkedList<String> findmission(final String url,final String myCookies){
         new Thread(){
             public void run(){
                 try {
@@ -293,7 +291,7 @@ public class ChaoXing implements Serializable {
 
     }
 
-    private void play(final String url){
+    private void play(final String url,final String myCookies){
         Log.i("ADT",url);
         //获取chapterid、courseid、clazzid
         Matcher m = Pattern.compile("chapterId=(\\d+)&courseId=(\\d+)&clazzid=(\\d+)").matcher(url);

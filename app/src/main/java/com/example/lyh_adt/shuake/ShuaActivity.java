@@ -11,6 +11,7 @@ import android.widget.ListView;
 import android.widget.TextView;
 
 import java.util.LinkedList;
+import java.util.Map;
 
 
 /**
@@ -25,22 +26,28 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
     private ChaoXing chaoXing = new ChaoXing();
     private CourseListAdapter mAdapter = null;
     private LinkedList<String> courseList = null;
+    private LinkedList<String> courseLinks = null;
     private Button btn_start;
     private Button btn_stop;
+    private Intent it1;
+    private String cookies;
     @Override
     public void onCreate(Bundle savedInstanceState){
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_shua);
+
+        it1 = new Intent(ShuaActivity.this,ChaoXing.class);
 
         //Intent
         Intent it = getIntent();
         Bundle bd = it.getExtras();
 
         username = bd.getCharSequence("username").toString();
-        String cookies =bd.getCharSequence("cookies").toString();
-        int flag = chaoXing.setCookies(cookies);
-        Log.i("ADT","flag="+flag);
-        courseList = chaoXing.getCourseList();
+        cookies =bd.getCharSequence("cookies").toString();
+
+        Map<String,LinkedList<String>> map = chaoXing.getCourseList(cookies);
+        courseList = map.get("courseList");
+        courseLinks = map.get("courseLinks");
         Log.i("ADT","courseList"+courseList.toString());
         bindViews();
 
@@ -75,9 +82,17 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
         switch (v.getId()){
             case R.id.btn_start:
                 Log.i("ADT","btnstart");
-                chaoXing.start(selectedCourse);
+
+                Bundle b1 = new Bundle();
+                b1.putChar("param",'s');
+                b1.putInt("startindex",selectedCourse);
+                b1.putString("myCookies",cookies);
+                b1.putSerializable("courseLinks",courseLinks);
+                it1.putExtras(b1);
+                startService(it1);
                 break;
             case R.id.btn_stop:
+                stopService(it1);
                 break;
         }
     }
