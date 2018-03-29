@@ -1,11 +1,17 @@
 package com.example.lyh_adt.shuake;
 
 import android.app.IntentService;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.media.MediaCodec;
 import android.os.Bundle;
+import android.support.v4.app.NotificationCompat;
 import android.util.Log;
 
 import java.io.BufferedReader;
@@ -44,13 +50,35 @@ public class ChaoXing extends IntentService implements Serializable {
     private String username=null;//用户名
     private CookieManager cookieManager = new CookieManager( null, CookiePolicy.ACCEPT_ALL );
     private boolean flag=false;
-    private LinkedList<String> missionlinks = new LinkedList<String>();//章节内的任务链接
-    private LinkedList<String>missionList= new LinkedList<String>();//任务标题
+    private String missionList;
 
 
     public ChaoXing(){
         super("ChaoXing");
         CookieHandler.setDefault(cookieManager);
+    }
+
+    @Override
+    public void onCreate(){
+        super.onCreate();
+
+        NotificationManager mNotificationManager = (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
+
+        NotificationChannel mChannel = new NotificationChannel("ShuaKeChaoXing","超星刷课",NotificationManager.IMPORTANCE_HIGH);
+        mChannel.setDescription("ShuaKeChaoXing");
+        mNotificationManager.createNotificationChannel(mChannel);
+
+
+
+        Notification notification = new Notification.Builder(this)
+        .setAutoCancel(false)
+        .setSmallIcon(R.mipmap.ic_launcher)
+        .setContentTitle("超星刷课")
+        .setContentText("正在运行...")
+        .setChannelId("ShuaKeChaoXing")
+        .build();
+
+        mNotificationManager.notify(1,notification);
     }
 
     @Override
@@ -64,6 +92,12 @@ public class ChaoXing extends IntentService implements Serializable {
 
             start(bundle.getInt("startindex"),bundle.getString("myCookies"),(ArrayList<String>) bundle.getSerializable("courseLinks"));
         }
+    }
+
+    @Override
+    public void onDestroy(){
+        super.onDestroy();
+        Log.i("ADT","onDestory");
     }
 
 
@@ -240,16 +274,23 @@ public class ChaoXing extends IntentService implements Serializable {
         Log.i("ADT","m="+m);
         //进入章节目录寻找未完成的任务
         Log.i("ADT","courseLinsk is Empty"+courseLinks.isEmpty());
-        findmission(courseLinks.get(m),myCookies);
-        for (int i=0;i<courseLinks.size();i+=1){
-            play(missionlinks.get(i),myCookies);
+
+        for (int i=m;i<courseLinks.size();i+=1){
+            Map<String,String> mission = findmission(courseLinks.get(i),myCookies);
+            Log.i("ADT","missionlink="+mission.get("link"));
+            while(mission.get("link")!=null)
+            {
+                missionList = mission.get("list");
+                Log.i("ADT","进入play循环");
+                play(mission.get("link"),myCookies,mission.get("missioncount"));
+                mission = findmission(courseLinks.get(i),myCookies);
+            }
             break;
         }
     }
 
-    private LinkedList<String> findmission(final String url,final String myCookies){
-        new Thread(){
-            public void run(){
+    private Map<String,String> findmission(final String url,final String myCookies){
+        Map<String,String> mission = new HashMap<String,String>();
                 try {
                     HttpURLConnection getMission = (HttpURLConnection)new URL(url).openConnection();
                     getMission.setRequestMethod("GET");
@@ -258,7 +299,7 @@ public class ChaoXing extends IntentService implements Serializable {
 
                     if (getMission.getResponseCode() == 200) {
                         InputStream is = getMission.getInputStream();
-                        Log.i("ADT", "Content=" + getMission.getContent().toString());
+                        //Log.i("ADT", "Content=" + getMission.getContent().toString());
                         BufferedReader reader = new BufferedReader(new InputStreamReader(is));
                         StringBuilder sb = new StringBuilder();
                         String line = null;
@@ -270,28 +311,23 @@ public class ChaoXing extends IntentService implements Serializable {
                         getMission.disconnect();
                         String resp = sb.toString();
 
-                        Matcher m = Pattern.compile("<span class=\"icon\">([\\d.]+)[\\s\\n]*<em class=\"orange\">.</em>[\\s\\n]*</span>[\\s\\n]*<span class=\"articlename\">[\\s\\n]*<a href='([\\/\\w?=&;]+)' title=\"([\\u4e00-\\u9fa5\\d（）]+)\"\\s*>").matcher(resp);
-                        while (m.find()){
-                            Log.i("ADT","index:"+m.group(1)+" link:"+m.group(2)+" title:"+m.group(3));
-                            missionList.add(m.group(3));
-                            missionlinks.add(m.group(2));
+                        Matcher m = Pattern.compile("<em class=\"orange\">(\\d)</em>[\\s\\n]*</span>[\\s\\n]*<span class=\"articlename\">[\\s\\n]*<a href='([\\/\\w?=&;]+)' title=\"([\\u4e00-\\u9fa5\\d（）]+)\"\\s*>").matcher(resp);
+                        if (m.find()){
+                            Log.i("ADT","missioncount="+m.group(1)+" link:"+m.group(2)+" title:"+m.group(3));
+                            mission.put("missioncount",m.group(1));
+                            mission.put("list",m.group(3));
+                            mission.put("link",m.group(2));
                         }
-                        flag = true;
                     }
 
                 }catch (Exception e){
                     e.printStackTrace();
                 }
-            }
-
-        }.start();
-        while(flag == false);
-        flag = false;
-        return missionlinks;
+        return mission;
 
     }
 
-    private void play(final String url,final String myCookies){
+    private void play(final String url,final String myCookies,String missioncount){
         Log.i("ADT",url);
         //获取chapterid、courseid、clazzid
         Matcher m = Pattern.compile("chapterId=(\\d+)&courseId=(\\d+)&clazzid=(\\d+)").matcher(url);
@@ -300,126 +336,125 @@ public class ChaoXing extends IntentService implements Serializable {
         final String courseId = m.group(2);
         final String clazzid = m.group(3);
 
+        try{
+            //获取objectid，jobid，otherinfo，fid
+            HttpURLConnection gettovideo = (HttpURLConnection) new URL("https://mooc1-2.chaoxing.com/knowledge/cards?clazzid=" + clazzid + "&courseid=" + courseId + "&knowledgeid=" + knowledgeid + "&num=0&v=20160407-1").openConnection();
+            gettovideo.setRequestMethod("GET");
+            gettovideo.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
+            gettovideo.setRequestProperty("Cookie", myCookies);
 
-        new Thread() {
-            public void run() {
-                try{
-                    //获取objectid，jobid，otherinfo，fid
-                    HttpURLConnection gettovideo = (HttpURLConnection) new URL("https://mooc1-2.chaoxing.com/knowledge/cards?clazzid=" + clazzid + "&courseid=" + courseId + "&knowledgeid=" + knowledgeid + "&num=0&v=20160407-1").openConnection();
-                    gettovideo.setRequestMethod("GET");
-                    gettovideo.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
-                    gettovideo.setRequestProperty("Cookie", myCookies);
+            if (gettovideo.getResponseCode() == 200) {
+                InputStream is = gettovideo.getInputStream();
+                Log.i("ADT", "Content=" + gettovideo.getContent().toString());
+                BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+                StringBuilder sb = new StringBuilder();
+                String line = null;
+                while ((line = reader.readLine()) != null) {
+                    //Log.i("ADT", "line=" + line);
+                    sb.append(line + "\n");
+                }
+                is.close();
+                gettovideo.disconnect();
+                String resp = sb.toString();
 
-                    if (gettovideo.getResponseCode() == 200) {
-                        InputStream is = gettovideo.getInputStream();
-                        Log.i("ADT", "Content=" + gettovideo.getContent().toString());
-                        BufferedReader reader = new BufferedReader(new InputStreamReader(is));
-                        StringBuilder sb = new StringBuilder();
-                        String line = null;
-                        while ((line = reader.readLine()) != null) {
-                            //Log.i("ADT", "line=" + line);
-                            sb.append(line + "\n");
-                        }
-                        is.close();
-                        gettovideo.disconnect();
-                        String resp = sb.toString();
+                m = Pattern.compile("jobid\":\"(\\d+)").matcher(resp);
+                m.find();
+                String jobid=m.group(1);
+                m = Pattern.compile("otherInfo\":\"(\\w+)\"").matcher(resp);
+                m.find();
+                String otherInfo=m.group(1);
+                m = Pattern.compile("objectid\":\"(\\w+)\"").matcher(resp);
+                m.find();
+                String objectid=m.group(1);
+                m = Pattern.compile("fid\":\"(\\d+)").matcher(resp);
+                m.find();
+                String fid=m.group(1);
+                m = Pattern.compile("userid\":\"(\\d+)\"").matcher(resp);
+                m.find();
+                String userid=m.group(1);
 
-                        Matcher m = Pattern.compile("jobid\":\"(\\d+)").matcher(resp);
-                        m.find();
-                        String jobid=m.group(1);
-                        m = Pattern.compile("otherInfo\":\"(\\w+)\"").matcher(resp);
-                        m.find();
-                        String otherInfo=m.group(1);
-                        m = Pattern.compile("objectid\":\"(\\w+)\"").matcher(resp);
-                        m.find();
-                        String objectid=m.group(1);
-                        m = Pattern.compile("fid\":\"(\\d+)").matcher(resp);
-                        m.find();
-                        String fid=m.group(1);
-                        m = Pattern.compile("userid\":\"(\\d+)\"").matcher(resp);
-                        m.find();
-                        String userid=m.group(1);
+                Log.i("ADT","jobid="+jobid+" otherInfo="+otherInfo+" objectid="+objectid+" fid="+fid+" userid="+userid);
 
-                        Log.i("ADT","jobid="+jobid+" otherInfo="+otherInfo+" objectid="+objectid+" fid="+fid+" userid="+userid);
+                //获取duration,dtoken
+                HttpURLConnection getstatus = (HttpURLConnection)new URL("https://mooc1-2.chaoxing.com/ananas/status/"+objectid+"?k="+fid).openConnection();
+                getstatus.setRequestMethod("GET");
+                getstatus.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
+                getstatus.setRequestProperty("Referer", "https://mooc1-2.chaoxing.com/ananas/modules/video/index.html?v=2018-0126-1905");
+                getstatus.setRequestProperty("Cookie",myCookies);
 
-                        //获取duration,dtoken
-                        HttpURLConnection getstatus = (HttpURLConnection)new URL("https://mooc1-2.chaoxing.com/ananas/status/"+objectid+"?k="+fid).openConnection();
-                        getstatus.setRequestMethod("GET");
-                        getstatus.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
-                        getstatus.setRequestProperty("Referer", "https://mooc1-2.chaoxing.com/ananas/modules/video/index.html?v=2018-0126-1905");
-                        getstatus.setRequestProperty("Cookie",myCookies);
+                if (getstatus.getResponseCode() == 200) {
+                    is = getstatus.getInputStream();
+                    Log.i("ADT", "Content=" + getstatus.getContent().toString());
+                    reader = new BufferedReader(new InputStreamReader(is));
+                    sb = new StringBuilder();
+                    while ((line = reader.readLine()) != null) {
+                        //Log.i("ADT", "line=" + line);
+                        sb.append(line + "\n");
+                    }
+                    is.close();
+                    getstatus.disconnect();
+                    resp = sb.toString();
 
-                        if (getstatus.getResponseCode() == 200) {
-                            is = getstatus.getInputStream();
-                            Log.i("ADT", "Content=" + getstatus.getContent().toString());
+                    m = Pattern.compile("duration\":(\\d+),").matcher(resp);
+                    m.find();
+                    String duration = m.group(1);
+                    m = Pattern.compile("dtoken\":\"(\\w+)\"").matcher(resp);
+                    m.find();
+                    String dtoken = m.group(1);
+
+                    String playingTime = "0";
+                    String enc=new String();
+                    HttpURLConnection getwork=(HttpURLConnection)new URL("https://mooc1-2.chaoxing.com/multimedia/log/"+dtoken+"?userid="+userid + "&rt=0.9&jobid=" + jobid + "&dtype=Video&objectId=" + objectid + "&clazzId=" + clazzid + "&clipTime=" + "0_" + duration + "&otherInfo=" + otherInfo + "&duration=" + duration + "&view=pc&playingTime=" +
+                            playingTime + "&isdrag=3&enc=" + enc).openConnection();
+
+                    resp="{\"isPassed\":false}";
+
+                    while(resp.equals("{\"isPassed\":false}")){
+                        enc = getenc(duration,playingTime,clazzid,userid,jobid,objectid);
+                        Log.i("ADT","enc="+enc);
+                        getwork = (HttpURLConnection)new URL("https://mooc1-2.chaoxing.com/multimedia/log/"+dtoken+"?userid="+userid + "&rt=0.9&jobid=" + jobid + "&dtype=Video&objectId=" + objectid + "&clazzId=" + clazzid + "&clipTime=" + "0_" + duration + "&otherInfo=" + otherInfo + "&duration=" + duration + "&view=pc&playingTime=" +
+                                playingTime + "&isdrag=3&enc=" + enc).openConnection();
+                        getwork.setRequestMethod("GET");
+                        getwork.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
+                        getwork.setRequestProperty("Referer", "https://mooc1-2.chaoxing.com/ananas/modules/video/index.html?v=2018-0126-1905");
+                        getwork.setRequestProperty("X - Requested - With", "XMLHttpRequest");
+                        getwork.setRequestProperty("Cookie",myCookies);
+
+                        int code =getwork.getResponseCode();
+                        Log.i("ADT","code="+code);
+                        if ( code == 200) {
+                            is = getwork.getInputStream();
                             reader = new BufferedReader(new InputStreamReader(is));
                             sb = new StringBuilder();
                             while ((line = reader.readLine()) != null) {
                                 //Log.i("ADT", "line=" + line);
-                                sb.append(line + "\n");
+                                sb.append(line);
                             }
                             is.close();
-                            getstatus.disconnect();
+                            getwork.disconnect();
                             resp = sb.toString();
 
-                            m = Pattern.compile("duration\":(\\d+),").matcher(resp);
-                            m.find();
-                            String duration = m.group(1);
-                            m = Pattern.compile("dtoken\":\"(\\w+)\"").matcher(resp);
-                            m.find();
-                            String dtoken = m.group(1);
-
-                            String playingTime = "0";
-                            String enc=new String();
-                            HttpURLConnection getwork=(HttpURLConnection)new URL("https://mooc1-2.chaoxing.com/multimedia/log/"+dtoken+"?userid="+userid + "&rt=0.9&jobid=" + jobid + "&dtype=Video&objectId=" + objectid + "&clazzId=" + clazzid + "&clipTime=" + "0_" + duration + "&otherInfo=" + otherInfo + "&duration=" + duration + "&view=pc&playingTime=" +
-                                    playingTime + "&isdrag=3&enc=" + enc).openConnection();
-
-                            resp="{\"isPassed\":false}";
-
-                            while(resp.equals("{\"isPassed\":false}")){
-                                enc = getenc(duration,playingTime,clazzid,userid,jobid,objectid);
-                                Log.i("ADT","enc="+enc);
-                                getwork = (HttpURLConnection)new URL("https://mooc1-2.chaoxing.com/multimedia/log/"+dtoken+"?userid="+userid + "&rt=0.9&jobid=" + jobid + "&dtype=Video&objectId=" + objectid + "&clazzId=" + clazzid + "&clipTime=" + "0_" + duration + "&otherInfo=" + otherInfo + "&duration=" + duration + "&view=pc&playingTime=" +
-                                        playingTime + "&isdrag=3&enc=" + enc).openConnection();
-                                getwork.setRequestMethod("GET");
-                                getwork.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
-                                getwork.setRequestProperty("Referer", "https://mooc1-2.chaoxing.com/ananas/modules/video/index.html?v=2018-0126-1905");
-                                getwork.setRequestProperty("X - Requested - With", "XMLHttpRequest");
-                                getwork.setRequestProperty("Cookie",myCookies);
-
-                                int code =getwork.getResponseCode();
-                                Log.i("ADT","code="+code);
-                                if ( code == 200) {
-                                    is = getwork.getInputStream();
-                                    reader = new BufferedReader(new InputStreamReader(is));
-                                    sb = new StringBuilder();
-                                    while ((line = reader.readLine()) != null) {
-                                        Log.i("ADT", "line=" + line);
-                                        sb.append(line);
-                                    }
-                                    is.close();
-                                    getwork.disconnect();
-                                    resp = sb.toString();
-
-                                    Log.i("ADT","resp="+resp);
-                                    playingTime = String.valueOf(Integer.parseInt(playingTime)+114);
-                                    Log.i("ADT","playingTime="+playingTime);
-                                }
-                                Thread.sleep(114000);
-                            }
-                            Log.i("ADT","出循环");
                             Log.i("ADT","resp="+resp);
+                            playingTime = String.valueOf(Integer.parseInt(playingTime)+114);
+                            Log.i("ADT","playingTime="+playingTime);
                         }
-                        flag = true;
+                        refreshNotification(Integer.parseInt(playingTime)/Integer.parseInt(duration),missionList);
+                        Thread.sleep(114000);
                     }
-                }catch (Exception e){
-                        e.printStackTrace();
+                    Log.i("ADT","出循环");
+                    Log.i("ADT","resp="+resp);
+                    if (missioncount.equals("2"))
+                    {
+                        Log.i("ADT","章节测验");
+                    }
                 }
+                flag = true;
             }
+        }catch (Exception e){
+                e.printStackTrace();
+        }
 
-        }.start();
-
-    }//c6957205ae737b63b98c5dba9f4e9362
+    }
 
     private String getenc(String duration,String playingTime,String clazzid,String userid,String jobid,String objectid){
         String clipTime = "0_"+duration;
@@ -448,6 +483,23 @@ public class ChaoXing extends IntentService implements Serializable {
             ret.append(HEX_DIGITS[bytes[i] & 0x0f]);
         }
         return ret.toString();
+    }
+
+    private void refreshNotification(int progress,String list) {
+        //获取NotificationManager实例
+        NotificationManager notifyManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        //实例化NotificationCompat.Builde并设置相关属性
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this)
+                //设置小图标
+                .setSmallIcon(R.mipmap.ic_launcher_round)
+                //设置通知标题
+                .setContentTitle("最简单的Notification")
+                //设置通知内容
+                .setContentText(list)
+                .setProgress(100,progress,false)
+                .setChannelId("ShuaKeChaoXing");
+        //通过builder.build()方法生成Notification对象,并发送通知,id=1
+        notifyManager.notify(1, builder.build());
     }
 
 }

@@ -36,7 +36,7 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_shua);
 
-        it1 = new Intent(ShuaActivity.this,ChaoXing.class);
+
 
         //Intent
         Intent it = getIntent();
@@ -82,6 +82,7 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
         switch (v.getId()){
             case R.id.btn_start:
                 Log.i("ADT","btnstart");
+                it1 = new Intent(ShuaActivity.this,ChaoXing.class);
 
                 Bundle b1 = new Bundle();
                 b1.putChar("param",'s');
@@ -92,6 +93,7 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
                 startService(it1);
                 break;
             case R.id.btn_stop:
+                it1 = new Intent(ShuaActivity.this,ChaoXing.class);
                 stopService(it1);
                 break;
         }
