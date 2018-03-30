@@ -94,6 +94,11 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
                 break;
             case R.id.btn_stop:
                 it1 = new Intent(ShuaActivity.this,ChaoXing.class);
+                //Bundle b2 = new Bundle();
+                //b2.putChar("param",'t');
+                //it1.putExtras(b2);
+                startService(it1);
+
                 stopService(it1);
                 break;
         }

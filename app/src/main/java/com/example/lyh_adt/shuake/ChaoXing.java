@@ -92,10 +92,18 @@ public class ChaoXing extends IntentService implements Serializable {
 
             start(bundle.getInt("startindex"),bundle.getString("myCookies"),(ArrayList<String>) bundle.getSerializable("courseLinks"));
         }
+        else if (action.equals('t'))
+        {
+            Log.i("ADT","停止");
+            flag = true;
+            stopSelf();
+        }
     }
 
     @Override
     public void onDestroy(){
+        flag =true;
+        stopSelf();
         super.onDestroy();
         Log.i("ADT","onDestory");
     }
@@ -282,7 +290,7 @@ public class ChaoXing extends IntentService implements Serializable {
             {
                 missionList = mission.get("list");
                 Log.i("ADT","进入play循环");
-                play(mission.get("link"),myCookies,mission.get("missioncount"));
+                play(mission.get("link"),myCookies);
                 mission = findmission(courseLinks.get(i),myCookies);
             }
             break;
@@ -314,7 +322,6 @@ public class ChaoXing extends IntentService implements Serializable {
                         Matcher m = Pattern.compile("<em class=\"orange\">(\\d)</em>[\\s\\n]*</span>[\\s\\n]*<span class=\"articlename\">[\\s\\n]*<a href='([\\/\\w?=&;]+)' title=\"([\\u4e00-\\u9fa5\\d（）]+)\"\\s*>").matcher(resp);
                         if (m.find()){
                             Log.i("ADT","missioncount="+m.group(1)+" link:"+m.group(2)+" title:"+m.group(3));
-                            mission.put("missioncount",m.group(1));
                             mission.put("list",m.group(3));
                             mission.put("link",m.group(2));
                         }
@@ -327,8 +334,8 @@ public class ChaoXing extends IntentService implements Serializable {
 
     }
 
-    private void play(final String url,final String myCookies,String missioncount){
-        Log.i("ADT",url);
+    private void play(final String url,final String myCookies){
+        Log.i("ADT","url="+url);
         //获取chapterid、courseid、clazzid
         Matcher m = Pattern.compile("chapterId=(\\d+)&courseId=(\\d+)&clazzid=(\\d+)").matcher(url);
         m.find();
@@ -426,7 +433,7 @@ public class ChaoXing extends IntentService implements Serializable {
                             is = getwork.getInputStream();
                             reader = new BufferedReader(new InputStreamReader(is));
                             sb = new StringBuilder();
-                            while ((line = reader.readLine()) != null) {
+                            while ((line = reader.readLine()) != null&&!flag) {
                                 //Log.i("ADT", "line=" + line);
                                 sb.append(line);
                             }
@@ -438,17 +445,18 @@ public class ChaoXing extends IntentService implements Serializable {
                             playingTime = String.valueOf(Integer.parseInt(playingTime)+114);
                             Log.i("ADT","playingTime="+playingTime);
                         }
-                        refreshNotification(Integer.parseInt(playingTime)/Integer.parseInt(duration),missionList);
+                        refreshNotification(Integer.parseInt(playingTime)/Integer.parseInt(duration)*100,missionList);
+
                         Thread.sleep(114000);
                     }
                     Log.i("ADT","出循环");
                     Log.i("ADT","resp="+resp);
-                    if (missioncount.equals("2"))
-                    {
-                        Log.i("ADT","章节测验");
-                    }
+
+
+                    Log.i("ADT","章节测验");
+                    dotest(url,myCookies,clazzid,courseId,knowledgeid);
+
                 }
-                flag = true;
             }
         }catch (Exception e){
                 e.printStackTrace();
@@ -486,6 +494,7 @@ public class ChaoXing extends IntentService implements Serializable {
     }
 
     private void refreshNotification(int progress,String list) {
+        Log.i("ADT","progress="+progress);
         //获取NotificationManager实例
         NotificationManager notifyManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         //实例化NotificationCompat.Builde并设置相关属性
@@ -493,13 +502,105 @@ public class ChaoXing extends IntentService implements Serializable {
                 //设置小图标
                 .setSmallIcon(R.mipmap.ic_launcher_round)
                 //设置通知标题
-                .setContentTitle("最简单的Notification")
+                .setContentTitle("超星刷课")
                 //设置通知内容
                 .setContentText(list)
                 .setProgress(100,progress,false)
                 .setChannelId("ShuaKeChaoXing");
         //通过builder.build()方法生成Notification对象,并发送通知,id=1
         notifyManager.notify(1, builder.build());
+    }
+
+    private void dotest(String url,final String myCookies,final String clazzid,final String courseid,final String knowledgeid){
+        String msg;
+        try{
+            HttpURLConnection resp = (HttpURLConnection) new URL("https://mooc1-2.chaoxing.com"+url).openConnection();
+            resp.setRequestMethod("GET");
+            resp.setRequestProperty("Cookie",myCookies);
+            resp.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
+
+            if (resp.getResponseCode()==200) {
+                InputStream is = resp.getInputStream();
+                BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+                StringBuilder sb = new StringBuilder();
+                String line = null;
+                while ((line = reader.readLine()) != null) {
+                    sb.append(line + "\n");
+                }
+                is.close();
+                resp.disconnect();
+                msg = sb.toString();
+
+                Matcher m = Pattern.compile("utEnc=\"(\\w+)\"").matcher(msg);
+                if(!m.find())
+                    return;
+                String utenc = m.group(1);
+
+
+                resp = (HttpURLConnection) new URL("https://mooc1-2.chaoxing.com/knowledge/cards?clazzid="+clazzid+"&courseid="+courseid+"&knowledgeid="+knowledgeid+"&num=1&v=20160407-1").openConnection();
+                resp.setRequestMethod("GET");
+                resp.setRequestProperty("Cookie",myCookies);
+                resp.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
+                resp.setRequestProperty("Referer","https://mooc1-2.chaoxing.com"+url);
+
+                if (resp.getResponseCode()==200) {
+                    is = resp.getInputStream();
+                    reader = new BufferedReader(new InputStreamReader(is));
+                    sb = new StringBuilder();
+                    line = null;
+                    while ((line = reader.readLine()) != null) {
+                        sb.append(line + "\n");
+                    }
+                    is.close();
+                    resp.disconnect();
+                    msg = sb.toString();
+                    Log.i("ADT",msg);
+
+                    m = Pattern.compile("\"workid\":\"(\\w+)\"").matcher(msg);
+                    m.find();
+                    String workId = m.group(1);
+                    String jobId = "work-"+workId;
+                    m = Pattern.compile("\"enc\":\"(\\w+)\"").matcher(msg);
+                    m.find();
+                    String enc = m.group(1);
+
+                    //获取问题
+                    resp = (HttpURLConnection) new URL("https://mooc1-2.chaoxing.com/workHandle/handle?workId="+workId+"&courseid="+courseid+"&knowledgeid="+knowledgeid+"&userid=&ut=s&classId="+clazzid+"&jobid="+jobId+"&type=&isphone=false&submit=false&enc="+enc+"&utenc="+utenc).openConnection();
+                    resp.setRequestMethod("GET");
+                    resp.setRequestProperty("Referer","https://mooc1-2.chaoxing.com/ananas/modules/work/index.html?v=2018-0126-1905");
+                    resp.setRequestProperty("Cookie",myCookies);
+                    resp.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
+                    resp.setInstanceFollowRedirects(true);
+
+                    if (resp.getResponseCode()==200) {
+                        is = resp.getInputStream();
+                        reader = new BufferedReader(new InputStreamReader(is));
+                        sb = new StringBuilder();
+                        line = null;
+                        while ((line = reader.readLine()) != null) {
+                            sb.append(line + "\n");
+                        }
+                        is.close();
+                        resp.disconnect();
+                        msg = sb.toString();
+                        Log.i("ADT",msg);
+                        m = Pattern.compile("\"workid\":\"(\\w+)\"").matcher(msg);
+                        while(m.find()){
+
+                        }
+
+                    }
+
+                }
+
+            }
+
+        }catch (Exception e){
+            e.printStackTrace();
+            Log.i("ADT","没打开答题页面？");
+        }
+
+
     }
 
 }
