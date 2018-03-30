@@ -83,6 +83,7 @@ public class ChaoXing extends IntentService implements Serializable {
 
     @Override
     protected void onHandleIntent(Intent intent){
+        flag=false;
         Log.i("ADT","ChaoxingonHandleIntent");
         Bundle bundle = intent.getExtras();
         Character action = bundle.getChar("param");
@@ -283,10 +284,10 @@ public class ChaoXing extends IntentService implements Serializable {
         //进入章节目录寻找未完成的任务
         Log.i("ADT","courseLinsk is Empty"+courseLinks.isEmpty());
 
-        for (int i=m;i<courseLinks.size();i+=1){
+        for (int i=m;i<courseLinks.size()&&!flag;i+=1){
             Map<String,String> mission = findmission(courseLinks.get(i),myCookies);
             Log.i("ADT","missionlink="+mission.get("link"));
-            while(mission.get("link")!=null)
+            while(mission.get("link")!=null&&!flag)
             {
                 missionList = mission.get("list");
                 Log.i("ADT","进入play循环");
@@ -416,7 +417,7 @@ public class ChaoXing extends IntentService implements Serializable {
 
                     resp="{\"isPassed\":false}";
 
-                    while(resp.equals("{\"isPassed\":false}")){
+                    while(resp.equals("{\"isPassed\":false}")&&!flag){
                         enc = getenc(duration,playingTime,clazzid,userid,jobid,objectid);
                         Log.i("ADT","enc="+enc);
                         getwork = (HttpURLConnection)new URL("https://mooc1-2.chaoxing.com/multimedia/log/"+dtoken+"?userid="+userid + "&rt=0.9&jobid=" + jobid + "&dtype=Video&objectId=" + objectid + "&clazzId=" + clazzid + "&clipTime=" + "0_" + duration + "&otherInfo=" + otherInfo + "&duration=" + duration + "&view=pc&playingTime=" +
@@ -433,7 +434,7 @@ public class ChaoXing extends IntentService implements Serializable {
                             is = getwork.getInputStream();
                             reader = new BufferedReader(new InputStreamReader(is));
                             sb = new StringBuilder();
-                            while ((line = reader.readLine()) != null&&!flag) {
+                            while ((line = reader.readLine()) != null) {
                                 //Log.i("ADT", "line=" + line);
                                 sb.append(line);
                             }
@@ -554,7 +555,7 @@ public class ChaoXing extends IntentService implements Serializable {
                     is.close();
                     resp.disconnect();
                     msg = sb.toString();
-                    Log.i("ADT",msg);
+                    //Log.i("ADT",msg);
 
                     m = Pattern.compile("\"workid\":\"(\\w+)\"").matcher(msg);
                     m.find();

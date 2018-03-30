@@ -97,7 +97,7 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
                 //Bundle b2 = new Bundle();
                 //b2.putChar("param",'t');
                 //it1.putExtras(b2);
-                startService(it1);
+                //startService(it1);
 
                 stopService(it1);
                 break;
