@@ -289,6 +289,7 @@ public class ChaoXing extends IntentService implements Serializable {
             Log.i("ADT","missionlink="+mission.get("link"));
             while(mission.get("link")!=null&&!flag)
             {
+                Log.i("ADT","flag=="+flag);
                 missionList = mission.get("list");
                 Log.i("ADT","进入play循环");
                 play(mission.get("link"),myCookies);
@@ -580,14 +581,15 @@ public class ChaoXing extends IntentService implements Serializable {
                         line = null;
                         while ((line = reader.readLine()) != null) {
                             sb.append(line + "\n");
+                            Log.i("ADT",line);
                         }
                         is.close();
                         resp.disconnect();
                         msg = sb.toString();
-                        Log.i("ADT",msg);
-                        m = Pattern.compile("\"workid\":\"(\\w+)\"").matcher(msg);
+                        String question;
+                        m = Pattern.compile("<div class=\"clearfix\" style=\"line-height: 35px; font-size: 14px;padding-right:15px;\">([\\D\\S]+)</div>").matcher(msg);
                         while(m.find()){
-
+                            question = m.group(1);
                         }
 
                     }
@@ -602,6 +604,56 @@ public class ChaoXing extends IntentService implements Serializable {
         }
 
 
+    }
+
+    private String getAnswer(String question){
+        try{
+            HttpURLConnection resp = (HttpURLConnection)new URL("https://www.zhengjie.com/s?type=question&q="+question).openConnection();
+            resp.setRequestMethod("GET");
+            resp.setRequestProperty("User-Agent","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
+
+            if (resp.getResponseCode()==200) {
+                InputStream is = resp.getInputStream();
+                BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+                StringBuilder sb = new StringBuilder();
+                String line = null;
+                while ((line = reader.readLine()) != null) {
+                    sb.append(line + "\n");
+                    Log.i("ADT", line);
+                }
+                is.close();
+                resp.disconnect();
+                String msg = sb.toString();
+
+                Matcher m = Pattern.compile("<input type='hidden' class='resource_url_for_copy' value='([\\w:/.]+)'>").matcher(msg);
+                if (m.find()){
+                    resp = (HttpURLConnection)new URL(m.group(1)).openConnection();
+                    resp.setRequestMethod("GET");
+                    resp.setRequestProperty("User-Agent","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
+
+                    if (resp.getResponseCode()==200) {
+                        is = resp.getInputStream();
+                        reader = new BufferedReader(new InputStreamReader(is));
+                        sb = new StringBuilder();
+                        line = null;
+                        while ((line = reader.readLine()) != null) {
+                            sb.append(line + "\n");
+                            Log.i("ADT", line);
+                        }
+                        is.close();
+                        resp.disconnect();
+                        msg = sb.toString();
+
+                        m = Pattern.compile("<div class='resource_content short' style='display: none;'>([\\u4e00-\\u9fa5\\w.\\s√×* ]+)</div>").matcher(msg);
+                        if (m.find()){
+
+                        }
+                    }
+                }
+            }
+        }catch (Exception e){
+            e.printStackTrace();
+        }
     }
 
 }
