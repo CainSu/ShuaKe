@@ -11,6 +11,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.media.MediaCodec;
 import android.os.Bundle;
+import android.os.Parcel;
 import android.support.v4.app.NotificationCompat;
 import android.util.Log;
 
@@ -103,7 +104,7 @@ public class ChaoXing extends IntentService implements Serializable {
 
     @Override
     public void onDestroy(){
-        flag =true;
+        flag = true;
         stopSelf();
         super.onDestroy();
         Log.i("ADT","onDestory");
@@ -283,6 +284,7 @@ public class ChaoXing extends IntentService implements Serializable {
         Log.i("ADT","m="+m);
         //进入章节目录寻找未完成的任务
         Log.i("ADT","courseLinsk is Empty"+courseLinks.isEmpty());
+        flag=false;
 
         for (int i=m;i<courseLinks.size()&&!flag;i+=1){
             Map<String,String> mission = findmission(courseLinks.get(i),myCookies);
@@ -411,7 +413,7 @@ public class ChaoXing extends IntentService implements Serializable {
                     m.find();
                     String dtoken = m.group(1);
 
-                    String playingTime = "0";
+                    String playingTime = "114";
                     String enc=new String();
                     HttpURLConnection getwork=(HttpURLConnection)new URL("https://mooc1-2.chaoxing.com/multimedia/log/"+dtoken+"?userid="+userid + "&rt=0.9&jobid=" + jobid + "&dtype=Video&objectId=" + objectid + "&clazzId=" + clazzid + "&clipTime=" + "0_" + duration + "&otherInfo=" + otherInfo + "&duration=" + duration + "&view=pc&playingTime=" +
                             playingTime + "&isdrag=3&enc=" + enc).openConnection();
@@ -447,9 +449,9 @@ public class ChaoXing extends IntentService implements Serializable {
                             playingTime = String.valueOf(Integer.parseInt(playingTime)+114);
                             Log.i("ADT","playingTime="+playingTime);
                         }
-                        refreshNotification(Integer.parseInt(playingTime)/Integer.parseInt(duration)*100,missionList);
+                        refreshNotification((int)(Float.parseFloat(playingTime)/Integer.parseInt(duration)*100),missionList);
 
-                        Thread.sleep(114000);
+                        if(!flag) Thread.sleep(114000);
                     }
                     Log.i("ADT","出循环");
                     Log.i("ADT","resp="+resp);
@@ -581,23 +583,104 @@ public class ChaoXing extends IntentService implements Serializable {
                         line = null;
                         while ((line = reader.readLine()) != null) {
                             sb.append(line + "\n");
-                            Log.i("ADT",line);
+                            //Log.i("ADT",line);
                         }
                         is.close();
                         resp.disconnect();
                         msg = sb.toString();
-                        String question;
-                        m = Pattern.compile("<div class=\"clearfix\" style=\"line-height: 35px; font-size: 14px;padding-right:15px;\">([\\D\\S]+)</div>").matcher(msg);
+
+                        m = Pattern.compile("totalQuestionNum=([\\w]+)\"").matcher(msg);
+                        m.find();
+                        String totalQuestionNum = m.group(1);
+
+                        m = Pattern.compile("id=\"workRelationId\" value=\"(\\d+)\"").matcher(msg);
+                        m.find();
+                        String workRelationId = m.group(1);
+
+                        m = Pattern.compile("id=\"enc_work\" value=\"(\\w+)\"").matcher(msg);
+                        m.find();
+                        String enc_work = m.group(1);
+
+                        m = Pattern.compile("name=\"userId\" value=\"(\\d+)\"").matcher(msg);
+                        m.find();
+                        String userid = m.group(1);
+
+                        String answer;
+                        m = Pattern.compile("<div class=\"clearfix\" style=\"line-height: 35px; font-size: 14px;padding-right:15px;\">(.+)</div>").matcher(msg);
+                        StringBuffer params = new StringBuffer();
+                        params.append("pyFlag=").append("&")
+                                .append("api=1").append("&")
+                                .append("workAnswerId=").append("&")
+                                .append("oldSchoolId=").append("&")
+                                .append("enc=").append("&")
+                                .append("courseId=").append(courseid).append("&")
+                                .append("classId=").append(clazzid).append("&")
+                                .append("totalQuestionNum=").append(totalQuestionNum).append("&")
+                                .append("fullScore=100.0").append("&")
+                                .append("knowledgeid=").append(knowledgeid).append("&")
+                                .append("oldWorkId=").append(workId).append("&")
+                                .append("jobid=").append("work-"+workId).append("&")
+                                .append("workRelationId=").append(workRelationId).append("&")
+                                .append("enc_work=").append(enc_work).append("&")
+                                .append("userId=").append(userid);
+
+                        Matcher mm;
+                        String answerwqbid=null;
                         while(m.find()){
-                            question = m.group(1);
+
+                            answer = getAnswer(m.group(1));
+                            Log.i("ADT","answer="+answer);
+                            if (answer.contains("√")){
+                                mm = Pattern.compile("name=\"answer(\\d+)\" value=\"true\"").matcher(msg);
+                                if(mm.find()){
+                                    params.append("&").append("answer"+mm.group(1)+"=").append("true").append("&").append("answertype"+mm.group(1)+"=3");
+                                    answerwqbid += mm.group(1)+",";
+                                }
+                            }else if(answer.contains("×")){
+                                mm = Pattern.compile("name=\"answer(\\d+)\" value=\"false\"").matcher(msg);
+                                if(mm.find()){
+                                    params.append("&").append("answer"+mm.group(1)+"=").append("false").append("&").append("answertype"+mm.group(1)+"=3");
+                                    answerwqbid += mm.group(1)+",";
+                                }
+                            }else{
+                                mm = Pattern.compile("<input name=\"answer(\\d+)\" type=\"radio\" value=\"(\\w)\"[\\D\\d]+style=\"padding-left:10px;\">.*"+answer+".*</a>").matcher(msg);
+                                if(mm.find()){
+                                    params.append("&").append("answer"+mm.group(1)+"=").append(mm.group(2)).append("&").append("answertype"+mm.group(1)+"=0");
+                                    answerwqbid += mm.group(1)+",";
+                                }
+                            }
+                            //Log.i("ADT-------------------","answer"+mm.group(1)+" value="+mm.group(2));
                         }
+                        Log.i("ADT","dotestfinish");
+                        params.append("&answerwqbid=").append(answerwqbid);
+                        Log.i("ADT","params="+params.toString());
 
+
+                        resp = (HttpURLConnection) new URL("https://mooc1-2.chaoxing.com/work/addStudentWorkNewWeb?_classId="+clazzid+"&courseid="+courseid+"&token="+enc_work+"&totalQuestionNum="+totalQuestionNum+"&version=1&ua=pc&formType=post&saveStatus=1&pos="+enc+"&value=(290|658)").openConnection();
+                        resp.setRequestMethod("POST");
+                        resp.setRequestProperty("Cookie",myCookies);
+                        resp.setRequestProperty("Referer","https://mooc1-2.chaoxing.com/work/doHomeWorkNew?courseId="+courseid+"&workId="+workId+"&api=1&knowledgeid="+knowledgeid+"&classId="+clazzid+"&oldWorkId="+workId+"&jobid=work-"+workId+"&type=&isphone=false&enc="+enc);
+                        resp.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
+                        resp.setUseCaches(false);
+                        byte[] bytes = params.toString().getBytes();
+                        resp.getOutputStream().write(bytes);
+                        if (resp.getResponseCode()==200) {
+                            is = resp.getInputStream();
+                            reader = new BufferedReader(new InputStreamReader(is));
+                            sb = new StringBuilder();
+                            line = null;
+                            while ((line = reader.readLine()) != null) {
+                                sb.append(line + "\n");
+                                Log.i("ADT",line);
+                            }
+                            is.close();
+                            resp.disconnect();
+                            msg = sb.toString();
+                        }
+                        Log.i("ADT","msg="+msg);
                     }
-
                 }
-
             }
-
         }catch (Exception e){
             e.printStackTrace();
             Log.i("ADT","没打开答题页面？");
@@ -619,7 +702,7 @@ public class ChaoXing extends IntentService implements Serializable {
                 String line = null;
                 while ((line = reader.readLine()) != null) {
                     sb.append(line + "\n");
-                    Log.i("ADT", line);
+                    //Log.i("ADT", line);
                 }
                 is.close();
                 resp.disconnect();
@@ -638,22 +721,30 @@ public class ChaoXing extends IntentService implements Serializable {
                         line = null;
                         while ((line = reader.readLine()) != null) {
                             sb.append(line + "\n");
-                            Log.i("ADT", line);
+                            //Log.i("ADT", line);
                         }
                         is.close();
                         resp.disconnect();
                         msg = sb.toString();
 
-                        m = Pattern.compile("<div class='resource_content short' style='display: none;'>([\\u4e00-\\u9fa5\\w.\\s√×* ]+)</div>").matcher(msg);
+                        m = Pattern.compile("<div class='resource_content short' style='display: none;'>(.+)</div>").matcher(msg);
                         if (m.find()){
-
+                            msg = m.group(1);
+                            //Log.i("ADT","return_answer_msg="+msg);
+                            msg = msg.split("<")[0];
+                            String[] t = msg.split(" ");
+                            msg = t[t.length-1];
+                            //Log.i("ADT","return_answer_msg="+msg);
+                            return msg;
                         }
+                        resp.disconnect();
                     }
                 }
             }
         }catch (Exception e){
             e.printStackTrace();
         }
+    return null;
     }
 
 }
