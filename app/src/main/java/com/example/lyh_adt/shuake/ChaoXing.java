@@ -109,7 +109,7 @@ public class ChaoXing extends IntentService implements Serializable {
             final String knowledgeid = m.group(1);
             final String courseId = m.group(2);
             final String clazzid = m.group(3);
-            dotest(mission.get("link"),bundle.getString("myCookies"),clazzid,courseId,knowledgeid);
+            dotest(mission.get("link"),bundle.getString("myCookies"),clazzid,courseId,knowledgeid,"1");
         }
     }
 
@@ -353,19 +353,16 @@ public class ChaoXing extends IntentService implements Serializable {
 
     private void play(final String url,final String myCookies,final String num){
         Log.i("ADT","url="+url);
-        if(url.equals(lasturl)){
-            Log.i("ADT","lasturl==url");
-            return;
-        }
-        lasturl=url;
-        //获取chapterid、courseid、clazzid
-        Matcher m = Pattern.compile("chapterId=(\\d+)&courseId=(\\d+)&clazzid=(\\d+)").matcher(url);
-        m.find();
-        final String knowledgeid = m.group(1);
-        final String courseId = m.group(2);
-        final String clazzid = m.group(3);
-
         try{
+
+            //获取chapterid、courseid、clazzid
+            Matcher m = Pattern.compile("chapterId=(\\d+)&courseId=(\\d+)&clazzid=(\\d+)").matcher(url);
+            m.find();
+            final String knowledgeid = m.group(1);
+            final String courseId = m.group(2);
+            final String clazzid = m.group(3);
+
+
             //获取objectid，jobid，otherinfo，fid
             HttpURLConnection gettovideo = (HttpURLConnection) new URL("https://mooc1-2.chaoxing.com/knowledge/cards?clazzid=" + clazzid + "&courseid=" + courseId + "&knowledgeid=" + knowledgeid + "&num="+num+"&v=20160407-1").openConnection();
             gettovideo.setRequestMethod("GET");
@@ -476,7 +473,7 @@ public class ChaoXing extends IntentService implements Serializable {
 
 
                         Log.i("ADT","章节测验");
-                        dotest(url,myCookies,clazzid,courseId,knowledgeid);
+                        dotest(url,myCookies,clazzid,courseId,knowledgeid,"1");
 
                     }
                 }
@@ -539,7 +536,7 @@ public class ChaoXing extends IntentService implements Serializable {
         notifyManager.notify(1, builder.build());
     }
 
-    private void dotest(String url,final String myCookies,final String clazzid,final String courseid,final String knowledgeid){
+    private void dotest(String url,final String myCookies,final String clazzid,final String courseid,final String knowledgeid,final String num){
         String msg;
         try{
             HttpURLConnection resp = (HttpURLConnection) new URL("https://mooc1-2.chaoxing.com"+url).openConnection();
@@ -565,7 +562,7 @@ public class ChaoXing extends IntentService implements Serializable {
                 String utenc = m.group(1);
 
 
-                resp = (HttpURLConnection) new URL("https://mooc1-2.chaoxing.com/knowledge/cards?clazzid="+clazzid+"&courseid="+courseid+"&knowledgeid="+knowledgeid+"&num=1&v=20160407-1").openConnection();
+                resp = (HttpURLConnection) new URL("https://mooc1-2.chaoxing.com/knowledge/cards?clazzid="+clazzid+"&courseid="+courseid+"&knowledgeid="+knowledgeid+"&num="+num+"&v=20160407-1").openConnection();
                 resp.setRequestMethod("GET");
                 resp.setRequestProperty("Cookie",myCookies);
                 resp.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
@@ -585,137 +582,20 @@ public class ChaoXing extends IntentService implements Serializable {
                     //Log.i("ADT",msg);
 
                     m = Pattern.compile("\"workid\":\"(\\w+)\"").matcher(msg);
-                    m.find();
-                    String workId = m.group(1);
-                    String jobId = "work-"+workId;
-                    m = Pattern.compile("\"enc\":\"(\\w+)\"").matcher(msg);
-                    m.find();
-                    String enc = m.group(1);
-
-                    //获取问题
-                    resp = (HttpURLConnection) new URL("https://mooc1-2.chaoxing.com/workHandle/handle?workId="+workId+"&courseid="+courseid+"&knowledgeid="+knowledgeid+"&userid=&ut=s&classId="+clazzid+"&jobid="+jobId+"&type=&isphone=false&submit=false&enc="+enc+"&utenc="+utenc).openConnection();
-                    resp.setRequestMethod("GET");
-                    resp.setRequestProperty("Referer","https://mooc1-2.chaoxing.com/ananas/modules/work/index.html?v=2018-0126-1905");
-                    resp.setRequestProperty("Cookie",myCookies);
-                    resp.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
-                    resp.setInstanceFollowRedirects(true);
-
-                    if (resp.getResponseCode()==200) {
-                        is = resp.getInputStream();
-                        reader = new BufferedReader(new InputStreamReader(is));
-                        sb = new StringBuilder();
-                        line = null;
-                        while ((line = reader.readLine()) != null) {
-                            sb.append(line + "\n");
-                            //Log.i("ADT",line);
-                        }
-                        is.close();
-                        resp.disconnect();
-                        msg = sb.toString();
-
-                        m = Pattern.compile("totalQuestionNum=([\\w]+)\"").matcher(msg);
+                    if(m.find()){
+                        String workId = m.group(1);
+                        String jobId = "work-"+workId;
+                        m = Pattern.compile("\"enc\":\"(\\w+)\"").matcher(msg);
                         m.find();
-                        String totalQuestionNum = m.group(1);
+                        String enc = m.group(1);
 
-                        m = Pattern.compile("id=\"workRelationId\" value=\"(\\d+)\"").matcher(msg);
-                        m.find();
-                        String workRelationId = m.group(1);
-
-                        m = Pattern.compile("id=\"enc_work\" value=\"(\\w+)\"").matcher(msg);
-                        m.find();
-                        String enc_work = m.group(1);
-
-                        m = Pattern.compile("name=\"userId\" value=\"(\\d+)\"").matcher(msg);
-                        m.find();
-                        String userid = m.group(1);
-
-                        String answer;
-                        m = Pattern.compile("<div class=\"clearfix\" style=\"line-height: 35px; font-size: 14px;padding-right:15px;\">(.+)</div>").matcher(msg);
-                        StringBuffer params = new StringBuffer();
-                        params.append("pyFlag=").append("&")
-                                .append("api=1").append("&")
-                                .append("workAnswerId=").append("&")
-                                .append("oldSchoolId=").append("&")
-                                .append("enc=").append("&")
-                                .append("courseId=").append(courseid).append("&")
-                                .append("classId=").append(clazzid).append("&")
-                                .append("totalQuestionNum=").append(totalQuestionNum).append("&")
-                                .append("fullScore=100.0").append("&")
-                                .append("knowledgeid=").append(knowledgeid).append("&")
-                                .append("oldWorkId=").append(workId).append("&")
-                                .append("jobid=").append("work-"+workId).append("&")
-                                .append("workRelationId=").append(workRelationId).append("&")
-                                .append("enc_work=").append(enc_work).append("&")
-                                .append("userId=").append(userid);
-
-                        Matcher mm;
-                        String answerwqbid=null;
-                        String Answer=null;
-                        int Panduan=0;
-                        while(m.find()){
-
-                            Log.i("ADT","question="+m.group(1));
-                            answer = getAnswer(m.group(1),0);
-                            Answer += answer;
-                            if(answer==null)throw new Exception();
-                            Log.i("ADT","answer="+answer);
-                            if (answer.contains("√")){
-                                int i=0;
-                                mm = Pattern.compile("name=\"answer(\\d+)\" value=\"true\"").matcher(msg);
-                                while(mm.find()&&(i+=1)<=Panduan);
-                                {
-                                    Log.i("ADT","question number="+mm.group(1));
-                                    params.append("&").append("answer"+mm.group(1)+"=").append("true").append("&").append("answertype"+mm.group(1)+"=3");
-                                    answerwqbid += mm.group(1)+",";
-                                }
-                                Panduan+=1;
-                            }else if(answer.contains("×")){
-                                int i=0;
-                                mm = Pattern.compile("name=\"answer(\\d+)\" value=\"false\"").matcher(msg);
-                                while(mm.find()&&(i+=1)<=Panduan);
-                                {
-                                    Log.i("ADT","question number="+mm.group(1));
-                                    params.append("&").append("answer"+mm.group(1)+"=").append("false").append("&").append("answertype"+mm.group(1)+"=3");
-                                    answerwqbid += mm.group(1)+",";
-                                }
-                                Panduan+=1;
-                            }else{
-                                mm = Pattern.compile("<input name=\"answer(\\d+)\" type=\"radio\" value=\"(\\w)\"   />&nbsp;&nbsp;(\\w)[\\n\\s]+</label>[\\n\\s]+<a href=\"javascript:void\\(0\\);\" class=\"fl after\" style=\"padding-left:10px;\">"+answer+"</a>").matcher(msg);
-                                if(mm.find()){
-                                    Log.i("ADT","question number="+mm.group(1)+"option="+mm.group(2));
-                                    params.append("&").append("answer"+mm.group(1)+"=").append(mm.group(2)).append("&").append("answertype"+mm.group(1)+"=0");
-                                    answerwqbid += mm.group(1)+",";
-                                }
-                            }
-                            //Log.i("ADT-------------------","answer"+mm.group(1)+" value="+mm.group(2));
-                        }
-                        Log.i("ADT","answerwqbid="+answerwqbid);
-                        if(answerwqbid==null)throw new Exception();
-
-                        String[] a=answerwqbid.split(",");
-                        for (String i:a) {
-                            for(String j:a){
-                                if(i.equals(j)&&!i.equals(""))throw new Exception();
-                            }
-                        }
-
-                        Intent it = new Intent(ChaoXing.this,ShuaActivity.class);
-                        it.putExtra("answer",Answer);
-                        LocalBroadcastManager.getInstance(getApplicationContext()).sendBroadcast(it);
-                        Log.i("ADT","发送答案");
-                        Log.i("ADT","dotestfinish");
-                        params.append("&answerwqbid=").append(answerwqbid.replace("null",""));
-                        Log.i("ADT","params="+params.toString());
-
-
-                        resp = (HttpURLConnection) new URL("https://mooc1-2.chaoxing.com/work/addStudentWorkNewWeb?_classId="+clazzid+"&courseid="+courseid+"&token="+enc_work+"&totalQuestionNum="+totalQuestionNum+"&version=1&ua=pc&formType=post&saveStatus=1&pos="+enc+"&value=(290|658)").openConnection();
-                        resp.setRequestMethod("POST");
+                        //获取问题
+                        resp = (HttpURLConnection) new URL("https://mooc1-2.chaoxing.com/workHandle/handle?workId="+workId+"&courseid="+courseid+"&knowledgeid="+knowledgeid+"&userid=&ut=s&classId="+clazzid+"&jobid="+jobId+"&type=&isphone=false&submit=false&enc="+enc+"&utenc="+utenc).openConnection();
+                        resp.setRequestMethod("GET");
+                        resp.setRequestProperty("Referer","https://mooc1-2.chaoxing.com/ananas/modules/work/index.html?v=2018-0126-1905");
                         resp.setRequestProperty("Cookie",myCookies);
-                        resp.setRequestProperty("Referer","https://mooc1-2.chaoxing.com/work/doHomeWorkNew?courseId="+courseid+"&workId="+workId+"&api=1&knowledgeid="+knowledgeid+"&classId="+clazzid+"&oldWorkId="+workId+"&jobid=work-"+workId+"&type=&isphone=false&enc="+enc);
                         resp.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
-                        resp.setUseCaches(false);
-                        byte[] bytes = params.toString().getBytes();
-                        resp.getOutputStream().write(bytes);
+                        resp.setInstanceFollowRedirects(true);
 
                         if (resp.getResponseCode()==200) {
                             is = resp.getInputStream();
@@ -724,13 +604,132 @@ public class ChaoXing extends IntentService implements Serializable {
                             line = null;
                             while ((line = reader.readLine()) != null) {
                                 sb.append(line + "\n");
-                                Log.i("ADT",line);
+                                //Log.i("ADT",line);
                             }
                             is.close();
                             resp.disconnect();
                             msg = sb.toString();
+
+                            m = Pattern.compile("totalQuestionNum=([\\w]+)\"").matcher(msg);
+                            m.find();
+                            String totalQuestionNum = m.group(1);
+
+                            m = Pattern.compile("id=\"workRelationId\" value=\"(\\d+)\"").matcher(msg);
+                            m.find();
+                            String workRelationId = m.group(1);
+
+                            m = Pattern.compile("id=\"enc_work\" value=\"(\\w+)\"").matcher(msg);
+                            m.find();
+                            String enc_work = m.group(1);
+
+                            m = Pattern.compile("name=\"userId\" value=\"(\\d+)\"").matcher(msg);
+                            m.find();
+                            String userid = m.group(1);
+
+                            String answer;
+                            m = Pattern.compile("<div class=\"clearfix\" style=\"line-height: 35px; font-size: 14px;padding-right:15px;\">(.+)</div>").matcher(msg);
+                            StringBuffer params = new StringBuffer();
+                            params.append("pyFlag=").append("&")
+                                    .append("api=1").append("&")
+                                    .append("workAnswerId=").append("&")
+                                    .append("oldSchoolId=").append("&")
+                                    .append("enc=").append("&")
+                                    .append("courseId=").append(courseid).append("&")
+                                    .append("classId=").append(clazzid).append("&")
+                                    .append("totalQuestionNum=").append(totalQuestionNum).append("&")
+                                    .append("fullScore=100.0").append("&")
+                                    .append("knowledgeid=").append(knowledgeid).append("&")
+                                    .append("oldWorkId=").append(workId).append("&")
+                                    .append("jobid=").append("work-"+workId).append("&")
+                                    .append("workRelationId=").append(workRelationId).append("&")
+                                    .append("enc_work=").append(enc_work).append("&")
+                                    .append("userId=").append(userid);
+
+                            Matcher mm;
+                            String answerwqbid=null;
+                            String Answer=null;
+                            int Panduan=0;
+                            while(m.find()){
+
+                                Log.i("ADT","question="+m.group(1));
+                                answer = getAnswer(m.group(1),0);
+                                Answer += answer;
+                                if(answer==null)throw new Exception("Empty return answer");
+                                Log.i("ADT","answer="+answer);
+                                if (answer.contains("√")){
+                                    int i=0;
+                                    mm = Pattern.compile("name=\"answer(\\d+)\" value=\"true\"").matcher(msg);
+                                    while(mm.find()&&(i+=1)<=Panduan);
+                                    {
+                                        Log.i("ADT","question number="+mm.group(1));
+                                        params.append("&").append("answer"+mm.group(1)+"=").append("true").append("&").append("answertype"+mm.group(1)+"=3");
+                                        answerwqbid += mm.group(1)+",";
+                                    }
+                                    Panduan+=1;
+                                }else if(answer.contains("×")){
+                                    int i=0;
+                                    mm = Pattern.compile("name=\"answer(\\d+)\" value=\"false\"").matcher(msg);
+                                    while(mm.find()&&(i+=1)<=Panduan);
+                                    {
+                                        Log.i("ADT","question number="+mm.group(1));
+                                        params.append("&").append("answer"+mm.group(1)+"=").append("false").append("&").append("answertype"+mm.group(1)+"=3");
+                                        answerwqbid += mm.group(1)+",";
+                                    }
+                                    Panduan+=1;
+                                }else{
+                                    mm = Pattern.compile("<input name=\"answer(\\d+)\" type=\"radio\" value=\"(\\w)\"   />&nbsp;&nbsp;(\\w)[\\n\\s]+</label>[\\n\\s]+<a href=\"javascript:void\\(0\\);\" class=\"fl after\" style=\"padding-left:10px;\">"+answer+"</a>").matcher(msg);
+                                    if(mm.find()){
+                                        Log.i("ADT","question number="+mm.group(1)+"option="+mm.group(2));
+                                        params.append("&").append("answer"+mm.group(1)+"=").append(mm.group(2)).append("&").append("answertype"+mm.group(1)+"=0");
+                                        answerwqbid += mm.group(1)+",";
+                                    }
+                                }
+                                //Log.i("ADT-------------------","answer"+mm.group(1)+" value="+mm.group(2));
+                            }
+                            Log.i("ADT","answerwqbid="+answerwqbid);
+                            if(answerwqbid==null)throw new Exception("Empty sending answer");
+
+                            String[] a=answerwqbid.split(",");
+                            for (int i=1;i<a.length;i+=1) {
+                                if(a[0].equals(a[i]))throw new Exception("Equal answernum");
+                            }
+
+                            Intent it = new Intent(ChaoXing.this,ShuaActivity.class);
+                            it.putExtra("answer",Answer);
+                            LocalBroadcastManager.getInstance(getApplicationContext()).sendBroadcast(it);
+                            Log.i("ADT","发送答案");
+                            Log.i("ADT","dotestfinish");
+                            params.append("&answerwqbid=").append(answerwqbid.replace("null",""));
+                            Log.i("ADT","params="+params.toString());
+
+
+                            resp = (HttpURLConnection) new URL("https://mooc1-2.chaoxing.com/work/addStudentWorkNewWeb?_classId="+clazzid+"&courseid="+courseid+"&token="+enc_work+"&totalQuestionNum="+totalQuestionNum+"&version=1&ua=pc&formType=post&saveStatus=1&pos="+enc+"&value=(290|658)").openConnection();
+                            resp.setRequestMethod("POST");
+                            resp.setRequestProperty("Cookie",myCookies);
+                            resp.setRequestProperty("Referer","https://mooc1-2.chaoxing.com/work/doHomeWorkNew?courseId="+courseid+"&workId="+workId+"&api=1&knowledgeid="+knowledgeid+"&classId="+clazzid+"&oldWorkId="+workId+"&jobid=work-"+workId+"&type=&isphone=false&enc="+enc);
+                            resp.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
+                            resp.setUseCaches(false);
+                            byte[] bytes = params.toString().getBytes();
+                            resp.getOutputStream().write(bytes);
+
+                            if (resp.getResponseCode()==200) {
+                                is = resp.getInputStream();
+                                reader = new BufferedReader(new InputStreamReader(is));
+                                sb = new StringBuilder();
+                                line = null;
+                                while ((line = reader.readLine()) != null) {
+                                    sb.append(line + "\n");
+                                    //Log.i("ADT",line);
+                                }
+                                is.close();
+                                resp.disconnect();
+                                msg = sb.toString();
+                            }
                         }
+                    }else{
+                        dotest(url,myCookies,clazzid,courseid,knowledgeid,"2");
                     }
+
                 }
             }
         }catch (Exception e){

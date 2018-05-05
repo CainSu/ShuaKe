@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
@@ -40,7 +40,7 @@
         android:layout_height="40dp"
         android:layout_below="@id/textView_school"
         android:layout_toEndOf="@+id/textView_username"
-        android:text="20174390124"/>
+        android:text=""/>
 
     <TextView
         android:layout_width="wrap_content"
@@ -57,7 +57,7 @@
         android:layout_toRightOf="@id/textView_paswd"
         android:layout_below="@id/et_username"
         android:inputType="textPassword"
-        android:text="liyuhang20623"/>
+        android:text=""/>
 
     <TextView
         android:id="@+id/textView_valcode"
