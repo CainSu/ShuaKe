@@ -50,7 +50,6 @@ public class ChaoXing extends IntentService implements Serializable {
     private CookieManager cookieManager = new CookieManager( null, CookiePolicy.ACCEPT_ALL );
     private boolean flag=false;
     private String missionList;
-    private String lasturl;
 
 
     public ChaoXing(){
@@ -410,7 +409,6 @@ public class ChaoXing extends IntentService implements Serializable {
 
                     if (getstatus.getResponseCode() == 200) {
                         is = getstatus.getInputStream();
-                        Log.i("ADT", "Content=" + getstatus.getContent().toString());
                         reader = new BufferedReader(new InputStreamReader(is));
                         sb = new StringBuilder();
                         while ((line = reader.readLine()) != null) {
@@ -434,6 +432,7 @@ public class ChaoXing extends IntentService implements Serializable {
                                 playingTime + "&isdrag=3&enc=" + enc).openConnection();
 
                         resp="{\"isPassed\":false}";
+                        Log.i("ADT","duration="+duration);
 
                         while(resp.equals("{\"isPassed\":false}")&&!flag){
                             enc = getenc(duration,playingTime,clazzid,userid,jobid,objectid);
