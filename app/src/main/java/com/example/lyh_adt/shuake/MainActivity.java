@@ -9,6 +9,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.Toast;
 
 public class MainActivity extends AppCompatActivity {
     private ImageView iv_valcode;
@@ -34,6 +35,10 @@ public class MainActivity extends AppCompatActivity {
                 String paswd = et_pasw.getText().toString();
                 String valcode = et_valcode.getText().toString();
                 String username = chaoXing.login(usernumber,paswd,valcode);
+                if(username.equals("0")){
+                    Toast.makeText(getApplicationContext(),"登录失败，请检查账号、密码、网络",Toast.LENGTH_LONG).show();
+                    return;
+                }
                 Log.i("ADT","用户名为"+username);
 
                 String coookies=chaoXing.getCoookies();

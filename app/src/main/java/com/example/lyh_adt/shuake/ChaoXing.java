@@ -1,20 +1,26 @@
 package com.example.lyh_adt.shuake;
 
-import android.app.IntentService;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 
+import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentSender;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 
+import android.os.Binder;
 import android.os.Bundle;
 
+import android.os.IBinder;
+import android.os.IInterface;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.v4.app.NotificationCompat;
 import android.support.v4.content.LocalBroadcastManager;
+import android.telecom.Call;
 import android.util.Log;
 
 import java.io.BufferedReader;
@@ -40,20 +46,28 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import javax.security.auth.callback.Callback;
+
 /**
  * Created by 10439 on 2018/3/21/0021.
  */
 
-public class ChaoXing extends IntentService implements Serializable {
+public class ChaoXing extends Service implements Serializable {
     private Bitmap bitmap=null;//验证码
     private String username=null;//用户名
     private CookieManager cookieManager = new CookieManager( null, CookiePolicy.ACCEPT_ALL );
     private boolean flag=false;
     private String missionList;
+    private OnProgressListener callback;
+    private String myCookies;
+    private ArrayList<String> courseLinks;
+    private int startindex;
+    private NotificationManager mNotificationManager;
+    private Thread shuaThread;
 
 
     public ChaoXing(){
-        super("ChaoXing");
+        super();
         CookieHandler.setDefault(cookieManager);
     }
 
@@ -61,7 +75,7 @@ public class ChaoXing extends IntentService implements Serializable {
     public void onCreate(){
         super.onCreate();
 
-        NotificationManager mNotificationManager = (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
+        mNotificationManager = (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
 
         NotificationChannel mChannel = new NotificationChannel("ShuaKeChaoXing","超星刷课",NotificationManager.IMPORTANCE_HIGH);
         mChannel.setDescription("ShuaKeChaoXing");
@@ -71,6 +85,7 @@ public class ChaoXing extends IntentService implements Serializable {
 
         Notification notification = new Notification.Builder(this)
         .setAutoCancel(false)
+        .setOngoing(true)
         .setSmallIcon(R.mipmap.ic_launcher)
         .setContentTitle("超星刷课")
         .setContentText("正在运行...")
@@ -81,40 +96,16 @@ public class ChaoXing extends IntentService implements Serializable {
     }
 
     @Override
-    protected void onHandleIntent(Intent intent){
-        flag=false;
-        Log.i("ADT","ChaoxingonHandleIntent");
-        Bundle bundle = intent.getExtras();
-        Character action = bundle.getChar("param");
-        if (action.equals('s'))
-        {
-            Log.i("ADT","开始");
-            flag = false;
-            start(bundle.getInt("startindex"),bundle.getString("myCookies"),(ArrayList<String>) bundle.getSerializable("courseLinks"));
-        }
-        else if (action.equals('t'))
-        {
-            Log.i("ADT","停止");
-            flag = true;
-            stopSelf();
-        }
-        else if(action.equals('d')){
-            Log.i("ADT","答案");
-            flag=false;
-            ArrayList<String> courseLinks = (ArrayList<String>) bundle.getSerializable("courseLinks");
-            Map<String,String> mission = findmission(courseLinks.get(bundle.getInt("startindex")),bundle.getString("myCookies"));
-            Matcher m = Pattern.compile("chapterId=(\\d+)&courseId=(\\d+)&clazzid=(\\d+)").matcher(mission.get("link"));
-            m.find();
-            final String knowledgeid = m.group(1);
-            final String courseId = m.group(2);
-            final String clazzid = m.group(3);
-            dotest(mission.get("link"),bundle.getString("myCookies"),clazzid,courseId,knowledgeid,"1");
-        }
-    }
+    public int onStartCommand(Intent intent,int flag,int startId){
+        Log.i("ADT","onStartCommand");
 
+        return super.onStartCommand(intent,flag,startId);
+    }
     @Override
     public void onDestroy(){
         flag = true;
+        shuaThread.interrupt();
+        mNotificationManager.cancelAll();
         stopSelf();
         super.onDestroy();
         Log.i("ADT","onDestory");
@@ -200,13 +191,13 @@ public class ChaoXing extends IntentService implements Serializable {
                             if (m.find()){
                                 username=m.group(1);
                             }
+                            else{
+                                username="0";
+                            }
 
 
                     }
-
                     //Log.i("ADT","Cookie是空的吗？"+cookieManager.getCookieStore().getCookies().toString());
-
-
                     }
                 }catch (Exception e){
                     e.printStackTrace();
@@ -239,7 +230,6 @@ public class ChaoXing extends IntentService implements Serializable {
 
                     if (getCourseList.getResponseCode() == 200){
                         InputStream is = getCourseList.getInputStream();
-                        Log.i("ADT","Content="+getCourseList.getContent().toString());
                         BufferedReader reader = new BufferedReader(new InputStreamReader(is));
                         StringBuilder sb = new StringBuilder();
                         String line = null;
@@ -289,21 +279,19 @@ public class ChaoXing extends IntentService implements Serializable {
 
     }
 
-    public void start(int m,final String myCookies,ArrayList<String> courseLinks){
+    public void startshua(int m,final String myCookies,ArrayList<String> courseLinks){
 
-        Log.i("ADT","m="+m);
+        callback.log("开始");
         //进入章节目录寻找未完成的任务
         Log.i("ADT","courseLinsk is Empty"+courseLinks.isEmpty());
+        callback.log("courseLinsk is Empty=="+courseLinks.isEmpty());
         flag=false;
 
         for (int i=m;i<courseLinks.size()&&!flag;i+=1){
             Map<String,String> mission = findmission(courseLinks.get(i),myCookies);
-            Log.i("ADT","missionlink="+mission.get("link"));
             while(mission.get("link")!=null&&!flag)
             {
-                Log.i("ADT","flag=="+flag);
                 missionList = mission.get("list");
-                Log.i("ADT","进入play循环");
                 play(mission.get("link"),myCookies,"0");
                 mission = findmission(courseLinks.get(i),myCookies);
             }
@@ -322,7 +310,6 @@ public class ChaoXing extends IntentService implements Serializable {
 
                     if (getMission.getResponseCode() == 200) {
                         InputStream is = getMission.getInputStream();
-                        //Log.i("ADT", "Content=" + getMission.getContent().toString());
                         BufferedReader reader = new BufferedReader(new InputStreamReader(is));
                         StringBuilder sb = new StringBuilder();
                         String line = null;
@@ -340,7 +327,6 @@ public class ChaoXing extends IntentService implements Serializable {
                             mission.put("list",m.group(3));
                             mission.put("link",m.group(2));
                         }
-                        Log.i("ADT","WHAT?");
                     }
 
                 }catch (Exception e){
@@ -370,7 +356,6 @@ public class ChaoXing extends IntentService implements Serializable {
 
             if (gettovideo.getResponseCode() == 200) {
                 InputStream is = gettovideo.getInputStream();
-                Log.i("ADT", "Content=" + gettovideo.getContent().toString());
                 BufferedReader reader = new BufferedReader(new InputStreamReader(is));
                 StringBuilder sb = new StringBuilder();
                 String line = null;
@@ -460,6 +445,7 @@ public class ChaoXing extends IntentService implements Serializable {
                                 resp = sb.toString();
 
                                 Log.i("ADT","resp="+resp);
+                                callback.log("resp="+resp);
                                 playingTime = String.valueOf(Integer.parseInt(playingTime)+114);
                                 Log.i("ADT","playingTime="+playingTime);
                             }
@@ -469,6 +455,7 @@ public class ChaoXing extends IntentService implements Serializable {
                         }
                         Log.i("ADT","出循环");
                         Log.i("ADT","resp="+resp);
+
 
 
                         Log.i("ADT","章节测验");
@@ -519,6 +506,7 @@ public class ChaoXing extends IntentService implements Serializable {
 
     private void refreshNotification(int progress,String list) {
         Log.i("ADT","progress="+progress);
+        callback.log("progress="+progress);
         //获取NotificationManager实例
         NotificationManager notifyManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         //实例化NotificationCompat.Builde并设置相关属性
@@ -651,10 +639,12 @@ public class ChaoXing extends IntentService implements Serializable {
                             while(m.find()){
 
                                 Log.i("ADT","question="+m.group(1));
+                                callback.log("question="+m.group(1));
                                 answer = getAnswer(m.group(1),0);
                                 Answer += answer;
                                 if(answer==null)throw new Exception("Empty return answer");
                                 Log.i("ADT","answer="+answer);
+                                callback.log("answer="+answer);
                                 if (answer.contains("√")){
                                     int i=0;
                                     mm = Pattern.compile("name=\"answer(\\d+)\" value=\"true\"").matcher(msg);
@@ -686,16 +676,19 @@ public class ChaoXing extends IntentService implements Serializable {
                                 //Log.i("ADT-------------------","answer"+mm.group(1)+" value="+mm.group(2));
                             }
                             Log.i("ADT","answerwqbid="+answerwqbid);
-                            if(answerwqbid==null)throw new Exception("Empty sending answer");
+                            if(answerwqbid==null){
+                                flag=true;
+                                throw new Exception("Empty sending answer");
+                            }
 
                             String[] a=answerwqbid.split(",");
                             for (int i=1;i<a.length;i+=1) {
-                                if(a[0].equals(a[i]))throw new Exception("Equal answernum");
+                                if(a[0].equals(a[i])){
+                                    flag=true;
+                                    throw new Exception("Equal answernum");
+                                }
                             }
 
-                            Intent it = new Intent(ChaoXing.this,ShuaActivity.class);
-                            it.putExtra("answer",Answer);
-                            LocalBroadcastManager.getInstance(getApplicationContext()).sendBroadcast(it);
                             Log.i("ADT","发送答案");
                             Log.i("ADT","dotestfinish");
                             params.append("&answerwqbid=").append(answerwqbid.replace("null",""));
@@ -817,4 +810,58 @@ public class ChaoXing extends IntentService implements Serializable {
     return null;
     }
 
+
+    public void Getanswer(String url,String Cookies){
+        final Map<String,String> mission = findmission(url,Cookies);
+        Matcher m = Pattern.compile("chapterId=(\\d+)&courseId=(\\d+)&clazzid=(\\d+)").matcher(mission.get("link"));
+        m.find();
+        final String knowledgeid = m.group(1);
+        final String courseId = m.group(2);
+        final String clazzid = m.group(3);
+        new Thread(){
+            @Override
+            public void run(){
+                dotest(mission.get("link"),myCookies,clazzid,courseId,knowledgeid,"1");
+            }
+        }.start();
+    }
+    @Override
+    public IBinder onBind(Intent intent) {
+        Log.i("ADT","Binded");
+        Bundle bundle = intent.getExtras();
+        myCookies=bundle.getString("myCookies");
+        courseLinks=(ArrayList<String>) bundle.getSerializable("courseLinks");
+        flag=false;
+        return new ChaoxingBinder();
+    }
+
+    public void setCallback(OnProgressListener callback){
+        this.callback = callback;
+    }
+
+    public static interface OnProgressListener{
+        void log(String string);
+    }
+
+    public class ChaoxingBinder extends Binder {
+        public ChaoXing getService(){
+            return ChaoXing.this;
+        }
+
+        public void begin(int index){
+            startindex=index;
+            shuaThread=new Thread(){
+                @Override
+                public void run(){
+                    startshua(startindex,myCookies,courseLinks);
+                }
+            };
+            shuaThread.start();
+        }
+        public void stop(){
+            if(shuaThread!=null){
+                shuaThread.interrupt();
+            }
+        }
+    }
 }
