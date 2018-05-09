@@ -120,7 +120,9 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
                 b1.putSerializable("courseLinks",courseLinks);
                 b1.putInt("startIndex",selectedCourse);
                 it1.putExtras(b1);
-                startService(it1);
+                //startService(it1);
+                startForegroundService(it1);
+
 
                 Log.i("ADT","btnstart");
                 break;

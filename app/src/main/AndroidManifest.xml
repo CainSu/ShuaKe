@@ -25,7 +25,6 @@
                 <action android:name="com.test.ChaoXing"/>
             </intent-filter>
         </service>
-        <receiver android:name=".ShuaActivity$MyBroadcastReceiver"/>
     </application>
 
     <uses-permission android:name="android.permission.INTERNET"/>

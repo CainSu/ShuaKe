@@ -81,19 +81,31 @@ public class ChaoXing extends Service implements Serializable {
         super.onCreate();
 
         Intent shuaIntent = new Intent(this,ShuaActivity.class);
+
+        NotificationChannel notificationChannel = null;
+        notificationChannel = new NotificationChannel("ChaoXingShuaKeid","ShuaKeChaoXing",NotificationManager.IMPORTANCE_HIGH);
+        notificationChannel.enableLights(false);
+        notificationChannel.enableVibration(false);
+        notificationChannel.setShowBadge(true);
+        notificationChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+
+        NotificationManager manager=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);
+        manager.createNotificationChannel(notificationChannel);
+
+
         PendingIntent shuaPendingIntent = PendingIntent.getActivity(this,0,shuaIntent,PendingIntent.FLAG_UPDATE_CURRENT);
 
-        Notification notification = new Notification.Builder(this)
+        Notification notification = new NotificationCompat.Builder(this,"ChaoXingShuaKeid")
         .setAutoCancel(false)
         .setOngoing(true)
         .setSmallIcon(R.mipmap.ic_launcher)
         .setContentTitle("超星刷课")
         .setContentText("正在运行...")
-        .setChannelId("ShuaKeChaoXing")
         .setContentIntent(shuaPendingIntent)
         .build();
 
         startForeground(1,notification);
+        //manager.notify(1,notification);
     }
 
     @Override
@@ -118,7 +130,6 @@ public class ChaoXing extends Service implements Serializable {
         super.onDestroy();
         Log.i("ADT","onDestory");
     }
-
 
     public Bitmap getValocde() {
         Log.i("ADT","获取验证码图片");
@@ -525,16 +536,15 @@ public class ChaoXing extends Service implements Serializable {
         PendingIntent shuaPendingIntent = PendingIntent.getActivity(this,0,shuaIntent,PendingIntent.FLAG_UPDATE_CURRENT);
         //获取NotificationManager实例
         //实例化NotificationCompat.Builde并设置相关属性
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(this)
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this,"ChaoXingShuaKeid")
                 .setContentIntent(shuaPendingIntent)
                 //设置小图标
                 .setSmallIcon(R.mipmap.ic_launcher_round)
-                //设置通知标题
+                //设置通知标题1
                 .setContentTitle("超星刷课")
                 //设置通知内容
                 .setContentText(list)
-                .setProgress(100,progress,false)
-                .setChannelId("ShuaKeChaoXing");
+                .setProgress(100,progress,false);
         //通过builder.build()方法生成Notification对象,并发送通知,id=1
         startForeground(1,builder.build());
     }
