@@ -7,7 +7,9 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Message;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
@@ -28,7 +30,6 @@ import java.util.Map;
 public class ShuaActivity extends AppCompatActivity implements View.OnClickListener {
     private int selectedCourse = -1;
     private String username;
-    private Button btn_answer;
     private TextView tv_usrname;
     private ListView listview;
     private ChaoXing chaoXing = new ChaoXing();
@@ -37,11 +38,11 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
     private LinkedList<String> courseLinks = null;
     private Button btn_start;
     private Button btn_stop;
-    private TextView tv_answer;
     private TextView tv_log;
     private Intent it1;
     private String cookies;
-    private ChaoXing.ChaoxingBinder chaoxingBinder;
+    private Boolean firstAdd=true;
+    public static Handler handler;
 
     @Override
     public void onCreate(Bundle savedInstanceState){
@@ -65,29 +66,30 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
         mAdapter = new CourseListAdapter((LinkedList<String>)courseList,ShuaActivity.this);
         listview.setAdapter(mAdapter);
 
-        //绑定服务
-        Log.i("ADT","绑定服务");
-        it1 = new Intent(ShuaActivity.this,ChaoXing.class);
+        handler=new Handler(){
+            @Override
+            public void handleMessage(Message msg){
+                Log.i("ADT","get Message");
+                    Bundle bd=msg.getData();
+                    if(firstAdd){
+                        tv_log.setText(bd.getString("log")+"\n");
+                        firstAdd=false;
+                    }
 
-        Bundle b1 = new Bundle();
-        b1.putString("myCookies",cookies);
-        b1.putSerializable("courseLinks",courseLinks);
-        it1.putExtras(b1);
-        startService(it1);
-        bindService(it1,connection,BIND_AUTO_CREATE);
-
+                    else
+                        tv_log.append(bd.getString("log")+"\n");
+                    tv_log.scrollTo(0,tv_log.getLineCount()*tv_log.getLineHeight()-tv_log.getHeight());
+            }
+        };
     }
 
     @Override
     public void onDestroy(){
-        unbindService(connection);
         stopService(it1);
         super.onDestroy();
     }
 
     private void bindViews(){
-        btn_answer=(Button)findViewById(R.id.btn_answer);
-        tv_answer = (TextView)findViewById(R.id.tv_answer);
         tv_log=(TextView)findViewById(R.id.tv_log);
         tv_usrname = (TextView)findViewById(R.id.tv_usrname);
         listview = (ListView)findViewById(R.id.listview);
@@ -96,7 +98,6 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
 
         btn_start.setOnClickListener(this);
         btn_stop.setOnClickListener(this);
-        btn_answer.setOnClickListener(this);
 
         listview.setOnItemClickListener(new AdapterView.OnItemClickListener(){
             @Override
@@ -112,39 +113,21 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
         Log.i("ADT","onClick");
         switch (v.getId()){
             case R.id.btn_start:
+                it1 = new Intent(ShuaActivity.this,ChaoXing.class);
+
+                Bundle b1 = new Bundle();
+                b1.putString("myCookies",cookies);
+                b1.putSerializable("courseLinks",courseLinks);
+                b1.putInt("startIndex",selectedCourse);
+                it1.putExtras(b1);
+                startService(it1);
 
                 Log.i("ADT","btnstart");
-                chaoxingBinder.begin(selectedCourse);
                 break;
             case R.id.btn_stop:
-                chaoxingBinder.stop();
-                break;
-
-            case R.id.btn_answer:
-                chaoXing.Getanswer(courseLinks.get(selectedCourse),cookies);
+                stopService(it1);
+                tv_log.setText("");
                 break;
         }
     }
-
-    private ServiceConnection connection = new ServiceConnection() {
-        @Override
-        public void onServiceConnected(ComponentName name, IBinder service) {
-            chaoxingBinder = (ChaoXing.ChaoxingBinder)service;
-
-            chaoXing = chaoxingBinder.getService();
-
-            chaoXing.setCallback(new ChaoXing.OnProgressListener(){
-                @Override
-                public void log(String string){
-                    tv_log.setText(tv_log.getText()+string+"\n");
-                    tv_log.scrollTo(0,tv_log.getLineCount()*tv_log.getLineHeight()-tv_log.getHeight());
-                }
-            });
-        }
-
-        @Override
-        public void onServiceDisconnected(ComponentName name) {
-        }
-    };
-
 }

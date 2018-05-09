@@ -4,6 +4,7 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 
+import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
@@ -14,8 +15,11 @@ import android.graphics.BitmapFactory;
 import android.os.Binder;
 import android.os.Bundle;
 
+import android.os.Handler;
 import android.os.IBinder;
 import android.os.IInterface;
+import android.os.Message;
+import android.os.PowerManager;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.NotificationCompat;
@@ -58,13 +62,10 @@ public class ChaoXing extends Service implements Serializable {
     private CookieManager cookieManager = new CookieManager( null, CookiePolicy.ACCEPT_ALL );
     private boolean flag=false;
     private String missionList;
-    private OnProgressListener callback;
     private String myCookies;
     private ArrayList<String> courseLinks;
     private int startindex;
-    private NotificationManager mNotificationManager;
     private Thread shuaThread;
-
 
     public ChaoXing(){
         super();
@@ -72,16 +73,15 @@ public class ChaoXing extends Service implements Serializable {
     }
 
     @Override
+    public IBinder onBind(Intent intent){
+        return null;
+    }
+    @Override
     public void onCreate(){
         super.onCreate();
 
-        mNotificationManager = (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
-
-        NotificationChannel mChannel = new NotificationChannel("ShuaKeChaoXing","超星刷课",NotificationManager.IMPORTANCE_HIGH);
-        mChannel.setDescription("ShuaKeChaoXing");
-        mNotificationManager.createNotificationChannel(mChannel);
-
-
+        Intent shuaIntent = new Intent(this,ShuaActivity.class);
+        PendingIntent shuaPendingIntent = PendingIntent.getActivity(this,0,shuaIntent,PendingIntent.FLAG_UPDATE_CURRENT);
 
         Notification notification = new Notification.Builder(this)
         .setAutoCancel(false)
@@ -90,22 +90,30 @@ public class ChaoXing extends Service implements Serializable {
         .setContentTitle("超星刷课")
         .setContentText("正在运行...")
         .setChannelId("ShuaKeChaoXing")
+        .setContentIntent(shuaPendingIntent)
         .build();
 
-        mNotificationManager.notify(1,notification);
+        startForeground(1,notification);
     }
 
     @Override
     public int onStartCommand(Intent intent,int flag,int startId){
         Log.i("ADT","onStartCommand");
 
+        this.flag=false;
+        Bundle bd = intent.getExtras();
+        myCookies=bd.getString("myCookies");
+        courseLinks=(ArrayList<String>)bd.getSerializable("courseLinks");
+        startindex=bd.getInt("startIndex");
+        startshua(startindex,myCookies,courseLinks);
         return super.onStartCommand(intent,flag,startId);
     }
     @Override
     public void onDestroy(){
         flag = true;
-        shuaThread.interrupt();
-        mNotificationManager.cancelAll();
+        if(shuaThread!=null)
+            shuaThread.interrupt();
+        stopForeground(STOP_FOREGROUND_REMOVE);
         stopSelf();
         super.onDestroy();
         Log.i("ADT","onDestory");
@@ -279,24 +287,30 @@ public class ChaoXing extends Service implements Serializable {
 
     }
 
-    public void startshua(int m,final String myCookies,ArrayList<String> courseLinks){
+    public void startshua(final int m,final String myCookies,final ArrayList<String> courseLinks){
 
-        callback.log("开始");
-        //进入章节目录寻找未完成的任务
-        Log.i("ADT","courseLinsk is Empty"+courseLinks.isEmpty());
-        callback.log("courseLinsk is Empty=="+courseLinks.isEmpty());
-        flag=false;
+        shuaThread=new Thread(){
+            @Override
+            public void run(){
+                message("开始");
+                //进入章节目录寻找未完成的任务
+                Log.i("ADT","courseLinsk is Empty"+courseLinks.isEmpty());
+                message("courseLinsk is Empty=="+courseLinks.isEmpty());
+                flag=false;
 
-        for (int i=m;i<courseLinks.size()&&!flag;i+=1){
-            Map<String,String> mission = findmission(courseLinks.get(i),myCookies);
-            while(mission.get("link")!=null&&!flag)
-            {
-                missionList = mission.get("list");
-                play(mission.get("link"),myCookies,"0");
-                mission = findmission(courseLinks.get(i),myCookies);
+                for (int i=m;i<courseLinks.size()&&!flag;i+=1){
+                    Map<String,String> mission = findmission(courseLinks.get(i),myCookies);
+                    while(mission.get("link")!=null&&!flag&&!shuaThread.isInterrupted())
+                    {
+                        missionList = mission.get("list");
+                        play(mission.get("link"),myCookies,"0");
+                        mission = findmission(courseLinks.get(i),myCookies);
+                    }
+                    if(shuaThread.isInterrupted())break;
+                }
             }
-            break;
-        }
+        };
+        shuaThread.start();
     }
 
     private Map<String,String> findmission(final String url,final String myCookies){
@@ -445,7 +459,7 @@ public class ChaoXing extends Service implements Serializable {
                                 resp = sb.toString();
 
                                 Log.i("ADT","resp="+resp);
-                                callback.log("resp="+resp);
+                                message("resp="+resp);
                                 playingTime = String.valueOf(Integer.parseInt(playingTime)+114);
                                 Log.i("ADT","playingTime="+playingTime);
                             }
@@ -506,11 +520,13 @@ public class ChaoXing extends Service implements Serializable {
 
     private void refreshNotification(int progress,String list) {
         Log.i("ADT","progress="+progress);
-        callback.log("progress="+progress);
+        message("progress="+progress);
+        Intent shuaIntent = new Intent(this,ShuaActivity.class);
+        PendingIntent shuaPendingIntent = PendingIntent.getActivity(this,0,shuaIntent,PendingIntent.FLAG_UPDATE_CURRENT);
         //获取NotificationManager实例
-        NotificationManager notifyManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         //实例化NotificationCompat.Builde并设置相关属性
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this)
+                .setContentIntent(shuaPendingIntent)
                 //设置小图标
                 .setSmallIcon(R.mipmap.ic_launcher_round)
                 //设置通知标题
@@ -520,7 +536,7 @@ public class ChaoXing extends Service implements Serializable {
                 .setProgress(100,progress,false)
                 .setChannelId("ShuaKeChaoXing");
         //通过builder.build()方法生成Notification对象,并发送通知,id=1
-        notifyManager.notify(1, builder.build());
+        startForeground(1,builder.build());
     }
 
     private void dotest(String url,final String myCookies,final String clazzid,final String courseid,final String knowledgeid,final String num){
@@ -639,12 +655,12 @@ public class ChaoXing extends Service implements Serializable {
                             while(m.find()){
 
                                 Log.i("ADT","question="+m.group(1));
-                                callback.log("question="+m.group(1));
+                                message("question="+m.group(1));
                                 answer = getAnswer(m.group(1),0);
                                 Answer += answer;
                                 if(answer==null)throw new Exception("Empty return answer");
                                 Log.i("ADT","answer="+answer);
-                                callback.log("answer="+answer);
+                                message("answer="+answer);
                                 if (answer.contains("√")){
                                     int i=0;
                                     mm = Pattern.compile("name=\"answer(\\d+)\" value=\"true\"").matcher(msg);
@@ -810,7 +826,6 @@ public class ChaoXing extends Service implements Serializable {
     return null;
     }
 
-
     public void Getanswer(String url,String Cookies){
         final Map<String,String> mission = findmission(url,Cookies);
         Matcher m = Pattern.compile("chapterId=(\\d+)&courseId=(\\d+)&clazzid=(\\d+)").matcher(mission.get("link"));
@@ -825,43 +840,13 @@ public class ChaoXing extends Service implements Serializable {
             }
         }.start();
     }
-    @Override
-    public IBinder onBind(Intent intent) {
-        Log.i("ADT","Binded");
-        Bundle bundle = intent.getExtras();
-        myCookies=bundle.getString("myCookies");
-        courseLinks=(ArrayList<String>) bundle.getSerializable("courseLinks");
-        flag=false;
-        return new ChaoxingBinder();
+
+    private void message(String string){
+        Message msg=new Message();
+        Bundle bd=new Bundle();
+        bd.putString("log",string);
+        msg.setData(bd);
+        ShuaActivity.handler.sendMessage(msg);
     }
 
-    public void setCallback(OnProgressListener callback){
-        this.callback = callback;
-    }
-
-    public static interface OnProgressListener{
-        void log(String string);
-    }
-
-    public class ChaoxingBinder extends Binder {
-        public ChaoXing getService(){
-            return ChaoXing.this;
-        }
-
-        public void begin(int index){
-            startindex=index;
-            shuaThread=new Thread(){
-                @Override
-                public void run(){
-                    startshua(startindex,myCookies,courseLinks);
-                }
-            };
-            shuaThread.start();
-        }
-        public void stop(){
-            if(shuaThread!=null){
-                shuaThread.interrupt();
-            }
-        }
-    }
 }

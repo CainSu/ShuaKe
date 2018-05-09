@@ -2,6 +2,8 @@ package com.example.lyh_adt.shuake;
 
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.os.Handler;
+import android.os.Message;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -51,6 +53,7 @@ public class MainActivity extends AppCompatActivity {
                 //绑定
                 it.putExtras(bd);
                 startActivity(it);
+                finish();
             }
         });
     }
@@ -62,6 +65,4 @@ public class MainActivity extends AppCompatActivity {
         et_pasw = (EditText)findViewById(R.id.et_pasw);
         et_valcode = (EditText)findViewById(R.id.et_valcode);
     }
-
-
 }
