@@ -1,11 +1,13 @@
 package com.example.lyh_adt.shuake;
 
+import android.app.AlarmManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentSender;
@@ -68,7 +70,7 @@ public class ChaoXing extends Service implements Serializable {
     private String myCookies;
     private ArrayList<String> courseLinks;
     private int startindex;
-    private Thread shuaThread;
+    private String url,duration,newplayingTime,clazzid,userid,jobid,objectid,dtoken,courseId,knowledgeid,otherInfo;
 
     public ChaoXing(){
         super();
@@ -115,20 +117,26 @@ public class ChaoXing extends Service implements Serializable {
     public int onStartCommand(Intent intent,int flag,int startId){
         Log.i("ADT","onStartCommand");
 
-        this.flag=false;
-        Bundle bd = intent.getExtras();
-        myCookies=bd.getString("myCookies");
-        courseLinks=(ArrayList<String>)bd.getSerializable("courseLinks");
-        startindex=bd.getInt("startIndex");
-        startshua(startindex,myCookies,courseLinks);
+        if(intent.getAction().equals("init")){
+            this.flag=false;
+            Bundle bd = intent.getExtras();
+            myCookies=bd.getString("myCookies");
+            courseLinks=(ArrayList<String>)bd.getSerializable("courseLinks");
+            startindex=bd.getInt("startIndex");
+            startshua(startindex,myCookies,courseLinks);
+        }
+        else if(intent.getAction().equals("playvideo")){
+            new Thread(){
+                public void run(){playVideo();}
+            }.start();
+        }
+
         return super.onStartCommand(intent,flag,startId);
     }
 
     @Override
     public void onDestroy(){
         flag = true;
-        if(shuaThread!=null)
-            shuaThread.interrupt();
         stopForeground(STOP_FOREGROUND_REMOVE);
         super.onDestroy();
         Log.i("ADT","onDestory");
@@ -303,11 +311,10 @@ public class ChaoXing extends Service implements Serializable {
 
     public void startshua(final int m,final String myCookies,final ArrayList<String> courseLinks){
 
-        shuaThread=new Thread(){
+        if(flag)return;
+        new Thread(){
             @Override
             public void run(){
-                if(flag||shuaThread.isInterrupted())return;
-
                 message("开始",1);
                 //进入章节目录寻找未完成的任务
                 Log.i("ADT","courseLinsk is Empty"+courseLinks.isEmpty());
@@ -317,18 +324,21 @@ public class ChaoXing extends Service implements Serializable {
                 Map<String,String> mission = findmission(courseLinks.get(startindex),myCookies);
                 if(mission.get("link")==null){
                     startindex+=1;
-                    if(startindex>=courseLinks.size())return;
+                    if(startindex>=courseLinks.size()){
+                        message("结束",2);
+                        stopSelf();
+                        return;
+                    }
                     mission = findmission(courseLinks.get(startindex),myCookies);
                 }
-                if(mission.get("link")!=null&&!flag&&!shuaThread.isInterrupted())
-                {
+                if(mission.get("link")!=null&&!flag) {
                     missionList = mission.get("list");
                     play(mission.get("link"),myCookies,"0");
                 }
             }
-        };
-        shuaThread.start();
+        }.start();
     }
+
 
     private Map<String,String> findmission(final String url,final String myCookies){
         Map<String,String> mission = new HashMap<String,String>();
@@ -368,6 +378,7 @@ public class ChaoXing extends Service implements Serializable {
     }
 
     private void play(final String url,final String myCookies,final String num){
+
         Log.i("ADT","url="+url);
         try{
 
@@ -450,7 +461,19 @@ public class ChaoXing extends Service implements Serializable {
                         resp="{\"isPassed\":false}";
                         Log.i("ADT","duration="+duration);
 
-                        playVideo(url,duration,playingTime,clazzid,userid,jobid,objectid,dtoken,courseId,knowledgeid,otherInfo);
+                        this.url=url;
+                        this.duration=duration;
+                        this.newplayingTime=playingTime;
+                        this.clazzid=clazzid;
+                        this.userid=userid;
+                        this.jobid=jobid;
+                        this.objectid=objectid;
+                        this.dtoken=dtoken;
+                        this.courseId=courseId;
+                        this.knowledgeid=knowledgeid;
+                        this.otherInfo=otherInfo;
+
+                        playVideo();
                     }
                 }
                 else{
@@ -465,14 +488,14 @@ public class ChaoXing extends Service implements Serializable {
 
     }
 
-    private void playVideo(final String url,final String duration,final String playingTime,final String clazzid,final String userid,final String jobid,final String objectid,final String dtoken,final String courseId,final String knowledgeid,final String otherInfo){
+    private void playVideo(){
         String enc;
         HttpURLConnection getwork;
-        enc = getenc(duration,playingTime,clazzid,userid,jobid,objectid);
+        enc = getenc(duration,newplayingTime,clazzid,userid,jobid,objectid);
         try{
             Log.i("ADT","enc="+enc);
             getwork = (HttpURLConnection)new URL("https://mooc1-2.chaoxing.com/multimedia/log/"+dtoken+"?userid="+userid + "&rt=0.9&jobid=" + jobid + "&dtype=Video&objectId=" + objectid + "&clazzId=" + clazzid + "&clipTime=" + "0_" + duration + "&otherInfo=" + otherInfo + "&duration=" + duration + "&view=pc&playingTime=" +
-                    playingTime + "&isdrag=3&enc=" + enc).openConnection();
+                    newplayingTime + "&isdrag=3&enc=" + enc).openConnection();
             getwork.setRequestMethod("GET");
             getwork.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
             getwork.setRequestProperty("Referer", "https://mooc1-2.chaoxing.com/ananas/modules/video/index.html?v=2018-0126-1905");
@@ -498,18 +521,16 @@ public class ChaoXing extends Service implements Serializable {
 
                 //Log.i("ADT","resp="+resp);
                 message("resp="+resp,1);
-                final String newplayingTime = String.valueOf(Integer.parseInt(playingTime)+114);
-                Log.i("ADT","playingTime="+playingTime);
-                message("playingTime="+playingTime,1);
-                refreshNotification((int)(Float.parseFloat(playingTime)/Integer.parseInt(duration)*100),duration+":"+missionList);
+                newplayingTime = String.valueOf(Integer.parseInt(newplayingTime)+114);
+                Log.i("ADT","playingTime="+newplayingTime);
+                message("playingTime="+newplayingTime,1);
+                refreshNotification((int)(Float.parseFloat(newplayingTime)/Integer.parseInt(duration)*100),duration+":"+missionList);
                 if(resp.equals("{\"isPassed\":false}")){
-                    Timer tm=new Timer(false);
-                    tm.schedule(new TimerTask() {
-                        @Override
-                        public void run() {
-                            playVideo(url,duration,newplayingTime,clazzid,userid,jobid,objectid,dtoken,courseId,knowledgeid,otherInfo);
-                        }
-                    },114000);
+                    Intent intent=new Intent(ChaoXing.this,ChaoXing.class);
+                    intent.setAction("playvideo");
+                    PendingIntent pendingIntent=PendingIntent.getForegroundService(ChaoXing.this,0,intent,0);
+                    AlarmManager am=(AlarmManager)getSystemService(ALARM_SERVICE);
+                    am.setExact(AlarmManager.RTC_WAKEUP,System.currentTimeMillis()+114000,pendingIntent);
                 }else {
                     dotest(url,myCookies,clazzid,courseId,knowledgeid,"1");
                 }

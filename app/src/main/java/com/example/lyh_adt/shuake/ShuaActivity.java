@@ -122,7 +122,7 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
                 wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MyWakelockTag");
                 wakeLock.acquire();
                 it1 = new Intent(ShuaActivity.this,ChaoXing.class);
-
+                it1.setAction("init");
                 Bundle b1 = new Bundle();
                 b1.putString("myCookies",cookies);
                 b1.putSerializable("courseLinks",courseLinks);
@@ -142,6 +142,7 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
             case R.id.btn_stop:
                 wakeLock.release();
                 stopService(it1);
+                firstStart=true;
                 tv_log.setText("");
                 break;
         }
