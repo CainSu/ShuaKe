@@ -309,10 +309,10 @@ public class ChaoXing extends Service implements Serializable {
                 PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
                 wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MyWakelockTag");
                 wakeLock.acquire();
-                message("开始");
+                message("开始",1);
                 //进入章节目录寻找未完成的任务
                 Log.i("ADT","courseLinsk is Empty"+courseLinks.isEmpty());
-                message("courseLinsk is Empty=="+courseLinks.isEmpty());
+                message("courseLinsk is Empty=="+courseLinks.isEmpty(),1);
                 flag=false;
 
                 for (int i=m;i<courseLinks.size()&&!flag;i+=1){
@@ -476,10 +476,10 @@ public class ChaoXing extends Service implements Serializable {
                                 resp = sb.toString();
 
                                 Log.i("ADT","resp="+resp);
-                                message("resp="+resp);
+                                message("resp="+resp,1);
                                 playingTime = String.valueOf(Integer.parseInt(playingTime)+114);
                                 Log.i("ADT","playingTime="+playingTime);
-                                message("playingTime="+playingTime);
+                                message("playingTime="+playingTime,1);
                             }
                             refreshNotification((int)(Float.parseFloat(playingTime)/Integer.parseInt(duration)*100),duration+":"+missionList);
 
@@ -538,7 +538,7 @@ public class ChaoXing extends Service implements Serializable {
 
     private void refreshNotification(int progress,String list) {
         Log.i("ADT","progress="+progress);
-        message("progress="+progress);
+        message("progress="+progress,1);
         Intent shuaIntent = new Intent(this,ShuaActivity.class);
         PendingIntent shuaPendingIntent = PendingIntent.getActivity(this,0,shuaIntent,PendingIntent.FLAG_UPDATE_CURRENT);
         //获取NotificationManager实例
@@ -672,12 +672,12 @@ public class ChaoXing extends Service implements Serializable {
                             while(m.find()){
 
                                 Log.i("ADT","question="+m.group(1));
-                                message("question="+m.group(1));
+                                message("question="+m.group(1),1);
                                 answer = getAnswer(m.group(1),0);
                                 Answer += answer;
                                 if(answer==null)throw new Exception("Empty return answer");
                                 Log.i("ADT","answer="+answer);
-                                message("answer="+answer);
+                                message("answer="+answer,1);
                                 if (answer.contains("√")){
                                     int i=0;
                                     mm = Pattern.compile("name=\"answer(\\d+)\" value=\"true\"").matcher(msg);
@@ -759,7 +759,7 @@ public class ChaoXing extends Service implements Serializable {
             }
         }catch (PatternSyntaxException e){
             e.printStackTrace();
-            message("无法找到答案,结束");
+            message("无法找到答案,结束",2);
             stopSelf();
 
         }catch (Exception e){
@@ -863,10 +863,11 @@ public class ChaoXing extends Service implements Serializable {
         }.start();
     }
 
-    private void message(String string){
+    private void message(String string,int what){
         Message msg=new Message();
         Bundle bd=new Bundle();
         bd.putString("log",string);
+        msg.what=what;
         msg.setData(bd);
         ShuaActivity.handler.sendMessage(msg);
     }

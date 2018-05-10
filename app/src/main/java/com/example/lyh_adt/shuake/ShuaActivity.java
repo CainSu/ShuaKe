@@ -72,8 +72,14 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
             public void handleMessage(Message msg){
                 Log.i("ADT","get Message");
                     Bundle bd=msg.getData();
-                    tv_log.append(bd.getString("log")+"\n");
-                    tv_log.scrollTo(0,tv_log.getLineCount()*tv_log.getLineHeight()-tv_log.getHeight());
+                    switch (msg.what){
+                        case 1:
+                            tv_log.append(bd.getString("log")+"\n");
+                            tv_log.scrollTo(0,tv_log.getLineCount()*tv_log.getLineHeight()-tv_log.getHeight());
+                        case 2:
+                            tv_log.append(bd.getString("log"));
+                    }
+
             }
         };
     }
