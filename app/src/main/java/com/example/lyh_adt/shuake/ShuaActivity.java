@@ -18,6 +18,7 @@ import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.ListView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.util.LinkedList;
 import java.util.Map;
@@ -41,7 +42,7 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
     private TextView tv_log;
     private Intent it1;
     private String cookies;
-    private Boolean firstAdd=true;
+    private Boolean firstStart=true;
     public static Handler handler;
 
     @Override
@@ -71,13 +72,7 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
             public void handleMessage(Message msg){
                 Log.i("ADT","get Message");
                     Bundle bd=msg.getData();
-                    if(firstAdd){
-                        tv_log.setText(bd.getString("log")+"\n");
-                        firstAdd=false;
-                    }
-
-                    else
-                        tv_log.append(bd.getString("log")+"\n");
+                    tv_log.append(bd.getString("log")+"\n");
                     tv_log.scrollTo(0,tv_log.getLineCount()*tv_log.getLineHeight()-tv_log.getHeight());
             }
         };
@@ -121,7 +116,12 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
                 b1.putInt("startIndex",selectedCourse);
                 it1.putExtras(b1);
                 //startService(it1);
-                startForegroundService(it1);
+                if(firstStart){
+                    startForegroundService(it1);
+                    firstStart=false;
+                }else {
+                    Toast.makeText(getApplicationContext(),"已有实例在进行，请停止后操作",Toast.LENGTH_LONG).show();
+                }
 
 
                 Log.i("ADT","btnstart");
