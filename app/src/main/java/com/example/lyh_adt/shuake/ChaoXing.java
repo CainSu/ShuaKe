@@ -47,6 +47,8 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -67,7 +69,6 @@ public class ChaoXing extends Service implements Serializable {
     private ArrayList<String> courseLinks;
     private int startindex;
     private Thread shuaThread;
-    private PowerManager.WakeLock wakeLock;
 
     public ChaoXing(){
         super();
@@ -129,7 +130,6 @@ public class ChaoXing extends Service implements Serializable {
         if(shuaThread!=null)
             shuaThread.interrupt();
         stopForeground(STOP_FOREGROUND_REMOVE);
-        wakeLock.release();
         super.onDestroy();
         Log.i("ADT","onDestory");
     }
@@ -306,24 +306,24 @@ public class ChaoXing extends Service implements Serializable {
         shuaThread=new Thread(){
             @Override
             public void run(){
-                PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
-                wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MyWakelockTag");
-                wakeLock.acquire();
+                if(flag||shuaThread.isInterrupted())return;
+
                 message("开始",1);
                 //进入章节目录寻找未完成的任务
                 Log.i("ADT","courseLinsk is Empty"+courseLinks.isEmpty());
                 message("courseLinsk is Empty=="+courseLinks.isEmpty(),1);
-                flag=false;
+                if(courseLinks.isEmpty())return;
 
-                for (int i=m;i<courseLinks.size()&&!flag;i+=1){
-                    Map<String,String> mission = findmission(courseLinks.get(i),myCookies);
-                    while(mission.get("link")!=null&&!flag&&!shuaThread.isInterrupted())
-                    {
-                        missionList = mission.get("list");
-                        play(mission.get("link"),myCookies,"0");
-                        mission = findmission(courseLinks.get(i),myCookies);
-                    }
-                    if(shuaThread.isInterrupted())break;
+                Map<String,String> mission = findmission(courseLinks.get(startindex),myCookies);
+                if(mission.get("link")==null){
+                    startindex+=1;
+                    if(startindex>=courseLinks.size())return;
+                    mission = findmission(courseLinks.get(startindex),myCookies);
+                }
+                if(mission.get("link")!=null&&!flag&&!shuaThread.isInterrupted())
+                {
+                    missionList = mission.get("list");
+                    play(mission.get("link"),myCookies,"0");
                 }
             }
         };
@@ -450,49 +450,7 @@ public class ChaoXing extends Service implements Serializable {
                         resp="{\"isPassed\":false}";
                         Log.i("ADT","duration="+duration);
 
-                        while(resp.equals("{\"isPassed\":false}")&&!flag){
-                            enc = getenc(duration,playingTime,clazzid,userid,jobid,objectid);
-                            Log.i("ADT","enc="+enc);
-                            getwork = (HttpURLConnection)new URL("https://mooc1-2.chaoxing.com/multimedia/log/"+dtoken+"?userid="+userid + "&rt=0.9&jobid=" + jobid + "&dtype=Video&objectId=" + objectid + "&clazzId=" + clazzid + "&clipTime=" + "0_" + duration + "&otherInfo=" + otherInfo + "&duration=" + duration + "&view=pc&playingTime=" +
-                                    playingTime + "&isdrag=3&enc=" + enc).openConnection();
-                            getwork.setRequestMethod("GET");
-                            getwork.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
-                            getwork.setRequestProperty("Referer", "https://mooc1-2.chaoxing.com/ananas/modules/video/index.html?v=2018-0126-1905");
-                            getwork.setRequestProperty("X - Requested - With", "XMLHttpRequest");
-                            getwork.setRequestProperty("Cookie",myCookies);
-
-                            int code =getwork.getResponseCode();
-                            Log.i("ADT","code="+code);
-                            if ( code == 200) {
-                                is = getwork.getInputStream();
-                                reader = new BufferedReader(new InputStreamReader(is));
-                                sb = new StringBuilder();
-                                while ((line = reader.readLine()) != null) {
-                                    //Log.i("ADT", "line=" + line);
-                                    sb.append(line);
-                                }
-                                is.close();
-                                getwork.disconnect();
-                                resp = sb.toString();
-
-                                Log.i("ADT","resp="+resp);
-                                message("resp="+resp,1);
-                                playingTime = String.valueOf(Integer.parseInt(playingTime)+114);
-                                Log.i("ADT","playingTime="+playingTime);
-                                message("playingTime="+playingTime,1);
-                            }
-                            refreshNotification((int)(Float.parseFloat(playingTime)/Integer.parseInt(duration)*100),duration+":"+missionList);
-
-                            if(!flag) Thread.sleep(114000);
-                        }
-                        Log.i("ADT","出循环");
-                        Log.i("ADT","resp="+resp);
-
-
-
-                        Log.i("ADT","章节测验");
-                        dotest(url,myCookies,clazzid,courseId,knowledgeid,"1");
-
+                        playVideo(url,duration,playingTime,clazzid,userid,jobid,objectid,dtoken,courseId,knowledgeid,otherInfo);
                     }
                 }
                 else{
@@ -505,6 +463,61 @@ public class ChaoXing extends Service implements Serializable {
                 e.printStackTrace();
         }
 
+    }
+
+    private void playVideo(final String url,final String duration,final String playingTime,final String clazzid,final String userid,final String jobid,final String objectid,final String dtoken,final String courseId,final String knowledgeid,final String otherInfo){
+        String enc;
+        HttpURLConnection getwork;
+        enc = getenc(duration,playingTime,clazzid,userid,jobid,objectid);
+        try{
+            Log.i("ADT","enc="+enc);
+            getwork = (HttpURLConnection)new URL("https://mooc1-2.chaoxing.com/multimedia/log/"+dtoken+"?userid="+userid + "&rt=0.9&jobid=" + jobid + "&dtype=Video&objectId=" + objectid + "&clazzId=" + clazzid + "&clipTime=" + "0_" + duration + "&otherInfo=" + otherInfo + "&duration=" + duration + "&view=pc&playingTime=" +
+                    playingTime + "&isdrag=3&enc=" + enc).openConnection();
+            getwork.setRequestMethod("GET");
+            getwork.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
+            getwork.setRequestProperty("Referer", "https://mooc1-2.chaoxing.com/ananas/modules/video/index.html?v=2018-0126-1905");
+            getwork.setRequestProperty("X - Requested - With", "XMLHttpRequest");
+            getwork.setRequestProperty("Cookie",myCookies);
+
+            int code =getwork.getResponseCode();
+            Log.i("ADT","code="+code);
+
+            ;
+            if ( code == 200) {
+                InputStream is = getwork.getInputStream();
+                BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    //Log.i("ADT", "line=" + line);
+                    sb.append(line);
+                }
+                is.close();
+                getwork.disconnect();
+                String resp = sb.toString();
+
+                //Log.i("ADT","resp="+resp);
+                message("resp="+resp,1);
+                final String newplayingTime = String.valueOf(Integer.parseInt(playingTime)+114);
+                Log.i("ADT","playingTime="+playingTime);
+                message("playingTime="+playingTime,1);
+                refreshNotification((int)(Float.parseFloat(playingTime)/Integer.parseInt(duration)*100),duration+":"+missionList);
+                if(resp.equals("{\"isPassed\":false}")){
+                    Timer tm=new Timer(false);
+                    tm.schedule(new TimerTask() {
+                        @Override
+                        public void run() {
+                            playVideo(url,duration,newplayingTime,clazzid,userid,jobid,objectid,dtoken,courseId,knowledgeid,otherInfo);
+                        }
+                    },114000);
+                }else {
+                    dotest(url,myCookies,clazzid,courseId,knowledgeid,"1");
+                }
+
+            }
+        }catch (Exception e){
+            e.printStackTrace();
+        }
     }
 
     private String getenc(String duration,String playingTime,String clazzid,String userid,String jobid,String objectid){
@@ -766,8 +779,7 @@ public class ChaoXing extends Service implements Serializable {
             e.printStackTrace();
             Log.i("ADT","没打开答题页面？");
         }
-
-
+        startshua(startindex,myCookies,courseLinks);
     }
 
     private String getAnswer(String question,final int n){

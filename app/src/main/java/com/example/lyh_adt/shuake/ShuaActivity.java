@@ -10,6 +10,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
+import android.os.PowerManager;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
@@ -44,6 +45,7 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
     private String cookies;
     private Boolean firstStart=true;
     public static Handler handler;
+    private PowerManager.WakeLock wakeLock;
 
     @Override
     public void onCreate(Bundle savedInstanceState){
@@ -76,8 +78,10 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
                         case 1:
                             tv_log.append(bd.getString("log")+"\n");
                             tv_log.scrollTo(0,tv_log.getLineCount()*tv_log.getLineHeight()-tv_log.getHeight());
+                            break;
                         case 2:
-                            tv_log.append(bd.getString("log"));
+                            tv_log.setText(bd.getString("log"));
+                            break;
                     }
 
             }
@@ -114,6 +118,9 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
         Log.i("ADT","onClick");
         switch (v.getId()){
             case R.id.btn_start:
+                PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
+                wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MyWakelockTag");
+                wakeLock.acquire();
                 it1 = new Intent(ShuaActivity.this,ChaoXing.class);
 
                 Bundle b1 = new Bundle();
@@ -133,6 +140,7 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
                 Log.i("ADT","btnstart");
                 break;
             case R.id.btn_stop:
+                wakeLock.release();
                 stopService(it1);
                 tv_log.setText("");
                 break;
