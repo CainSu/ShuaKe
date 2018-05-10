@@ -49,6 +49,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 import javax.security.auth.callback.Callback;
 
@@ -66,6 +67,7 @@ public class ChaoXing extends Service implements Serializable {
     private ArrayList<String> courseLinks;
     private int startindex;
     private Thread shuaThread;
+    private PowerManager.WakeLock wakeLock;
 
     public ChaoXing(){
         super();
@@ -120,13 +122,14 @@ public class ChaoXing extends Service implements Serializable {
         startshua(startindex,myCookies,courseLinks);
         return super.onStartCommand(intent,flag,startId);
     }
+
     @Override
     public void onDestroy(){
         flag = true;
         if(shuaThread!=null)
             shuaThread.interrupt();
         stopForeground(STOP_FOREGROUND_REMOVE);
-        stopSelf();
+        wakeLock.release();
         super.onDestroy();
         Log.i("ADT","onDestory");
     }
@@ -303,6 +306,9 @@ public class ChaoXing extends Service implements Serializable {
         shuaThread=new Thread(){
             @Override
             public void run(){
+                PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
+                wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MyWakelockTag");
+                wakeLock.acquire();
                 message("开始");
                 //进入章节目录寻找未完成的任务
                 Log.i("ADT","courseLinsk is Empty"+courseLinks.isEmpty());
@@ -473,8 +479,9 @@ public class ChaoXing extends Service implements Serializable {
                                 message("resp="+resp);
                                 playingTime = String.valueOf(Integer.parseInt(playingTime)+114);
                                 Log.i("ADT","playingTime="+playingTime);
+                                message("playingTime="+playingTime);
                             }
-                            refreshNotification((int)(Float.parseFloat(playingTime)/Integer.parseInt(duration)*100),missionList);
+                            refreshNotification((int)(Float.parseFloat(playingTime)/Integer.parseInt(duration)*100),duration+":"+missionList);
 
                             if(!flag) Thread.sleep(114000);
                         }
@@ -750,6 +757,11 @@ public class ChaoXing extends Service implements Serializable {
 
                 }
             }
+        }catch (PatternSyntaxException e){
+            e.printStackTrace();
+            message("无法找到答案,结束");
+            stopSelf();
+
         }catch (Exception e){
             e.printStackTrace();
             Log.i("ADT","没打开答题页面？");
