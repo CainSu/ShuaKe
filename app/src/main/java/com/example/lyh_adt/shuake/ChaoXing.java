@@ -323,6 +323,7 @@ public class ChaoXing extends Service implements Serializable {
 
                 Map<String,String> mission = findmission(courseLinks.get(startindex),myCookies);
                 if(mission.get("link")==null){
+                    message("startindex+1",1);
                     startindex+=1;
                     if(startindex>=courseLinks.size()){
                         message("结束",2);
@@ -362,10 +363,10 @@ public class ChaoXing extends Service implements Serializable {
                         getMission.disconnect();
                         String resp = sb.toString();
                         //Log.i("ADT","findmissionresp="+resp);
-                        Matcher m = Pattern.compile("<em class=\"orange\">(\\d)</em>[\\s\\n]*</span>[\\s\\n]*<span class=\"articlename\">[\\s\\n]*<a href='([\\/\\w?=&;]+)' title=\"([\\u4e00-\\u9fa5\\d（） ]+)\"\\s*>").matcher(resp);
+                        Matcher m = Pattern.compile("<em class=\"orange\">(\\d)</em>[\\s\\n]*</span>[\\s\\n]*<span class=\"articlename\">[\\s\\n]*<a href='([\\/\\w?=&;]+)' title=\"(.+)\"\\s*>").matcher(resp);
                         if (m.find()){
-                            Log.i("ADT","missioncount="+m.group(1)+" link:"+m.group(2)+" title:"+m.group(3));
-                            mission.put("list",m.group(3));
+                            Log.i("ADT","missioncount="+m.group(1)+" link:"+m.group(2)+" title:"+m.group(3).substring(0,25));
+                            mission.put("list",m.group(3).replaceAll("[^\\u4e00-\\u9fa5]",""));
                             mission.put("link",m.group(2));
                         }
                     }
@@ -783,6 +784,7 @@ public class ChaoXing extends Service implements Serializable {
                                 is.close();
                                 resp.disconnect();
                                 msg = sb.toString();
+                                startshua(startindex,myCookies,courseLinks);
                             }
                         }
                     }else{
@@ -800,10 +802,11 @@ public class ChaoXing extends Service implements Serializable {
             e.printStackTrace();
             Log.i("ADT","没打开答题页面？");
         }
-        startshua(startindex,myCookies,courseLinks);
+
     }
 
     private String getAnswer(String question,final int n){
+        Log.i("ADT","getAnswer");
         try{
             HttpURLConnection resp = (HttpURLConnection)new URL("https://www.baidu.com/s?ie=utf-8&wd="+question).openConnection();
             resp.setRequestMethod("GET");
@@ -871,6 +874,7 @@ public class ChaoXing extends Service implements Serializable {
                         i+=1;
                     }
                     resp.disconnect();
+                    if(msg==null)msg=getAnswer1(question,n);
                     return msg;
                 }
 
@@ -879,6 +883,85 @@ public class ChaoXing extends Service implements Serializable {
             e.printStackTrace();
         }
     return null;
+    }
+
+    private String getAnswer1(String question,final int n){
+        Log.i("ADT","getAnswer1");
+        try{
+            HttpURLConnection resp = (HttpURLConnection)new URL("https://www.zhengjie.com/s?type=question&q="+question).openConnection();
+            resp.setRequestMethod("GET");
+            resp.setRequestProperty("User-Agent","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
+
+
+            if (resp.getResponseCode()==200) {
+                InputStream is = resp.getInputStream();
+                BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+                StringBuilder sb = new StringBuilder();
+                String line = null;
+                while ((line = reader.readLine()) != null) {
+                    line=line.replaceAll("\\s","");
+                    line=line.replaceAll("\\n","");
+                    sb.append(line);
+                    //Log.i("ADT", line);
+                }
+                is.close();
+                resp.disconnect();
+                String msg = sb.toString();
+                resp.disconnect();
+                Log.i("ADT","------------------------------------------------------------");
+                //Log.i("ADT", msg);
+                Matcher m = Pattern.compile("<input class=\"resource_url_for_copy\" type=\"hidden\" value=\"([\\w\\/:.\\d]+)\">").matcher(msg);
+
+                int i=0;
+                while (m.find()&&(i+=1)<1);
+                Log.i("ADT","link="+m.group(1));
+                resp = (HttpURLConnection)new URL(m.group(1)).openConnection();
+                resp.setRequestMethod("GET");
+                resp.setInstanceFollowRedirects(true);
+                resp.setRequestProperty("User-Agent","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
+
+                Log.i("ADT","responsecode="+resp.getResponseCode());
+                if(resp.getResponseCode()==302){
+                    String location = resp.getHeaderField("Location");
+                    resp = (HttpURLConnection)new URL(location).openConnection();
+                    resp.setRequestMethod("GET");
+                    resp.setInstanceFollowRedirects(true);
+                    resp.setRequestProperty("User-Agent","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
+                }
+                Log.i("ADT","responsecode2="+resp.getResponseCode());
+                if (resp.getResponseCode()==200) {
+                    is = resp.getInputStream();
+                    reader = new BufferedReader(new InputStreamReader(is));
+                    sb = new StringBuilder();
+                    line = null;
+                    while ((line = reader.readLine()) != null) {
+                        sb.append(line);
+                        //Log.i("ADT", line);
+                    }
+                    is.close();
+                    resp.disconnect();
+                    msg = sb.toString();
+
+                    m = Pattern.compile("<div class='resource_content short' style='display: none;'>(.+)</div>").matcher(msg);
+                    i=0;
+                    while (m.find()&&i<=n){
+                        msg = m.group(1);
+                        //Log.i("ADT","return_answer_msg="+msg);
+                        msg = msg.split("<")[0];
+                        String[] t = msg.split(" ");
+                        msg = t[t.length-1];
+                        //Log.i("ADT","return_answer_msg="+msg);
+                        i+=1;
+                    }
+                    resp.disconnect();
+                    return msg;
+                }
+
+            }
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+        return null;
     }
 
     public void Getanswer(String url,String Cookies){
