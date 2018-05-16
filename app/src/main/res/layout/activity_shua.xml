@@ -46,6 +46,21 @@
         android:layout_below="@id/btn_start"
         android:text="停止"
         android:textSize="20sp" />
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="登出"
+        android:id="@+id/btn_logout"
+        android:layout_below="@id/btn_stop"
+        android:textSize="20sp"/>
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="退出"
+        android:id="@+id/btn_quit"
+        android:layout_below="@id/btn_logout"
+        android:textSize="20sp"/>
 
     <TextView
         android:id="@+id/tv_log"

@@ -52,8 +52,8 @@ public class MainActivity extends AppCompatActivity {
                 bd.putCharSequence("cookies",coookies);
                 //绑定
                 it.putExtras(bd);
-                startActivity(it);
-                finish();
+                MainActivity.this.setResult(0,it);
+                MainActivity.this.finish();
             }
         });
     }

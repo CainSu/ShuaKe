@@ -46,18 +46,25 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
     private Boolean firstStart=true;
     public static Handler handler;
     private PowerManager.WakeLock wakeLock;
+    private Button btn_logout;
+    private Button btn_quit;
 
     @Override
     public void onCreate(Bundle savedInstanceState){
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_shua);
 
-        //Intent
-        Intent it = getIntent();
-        Bundle bd = it.getExtras();
-
-        username = bd.getCharSequence("username").toString();
-        cookies =bd.getCharSequence("cookies").toString();
+        ShareHelper sh=new ShareHelper(getApplicationContext());
+        Map<String,String> data=sh.read();
+        if(!data.get("username").equals("")){
+            username=data.get("username");
+            cookies=data.get("cookies");
+        }
+        else {
+            Log.i("ADT","进入登录界面");
+            Intent it1=new Intent (getApplicationContext(),MainActivity.class);
+            startActivityForResult(it1,0);
+        }
 
         Map<String,LinkedList<String>> map = chaoXing.getCourseList(cookies);
         courseList = map.get("courseList");
@@ -72,7 +79,6 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
         handler=new Handler(){
             @Override
             public void handleMessage(Message msg){
-                Log.i("ADT","get Message");
                     Bundle bd=msg.getData();
                     switch (msg.what){
                         case 1:
@@ -83,9 +89,18 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
                             tv_log.setText(bd.getString("log"));
                             break;
                     }
-
             }
         };
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode,int resultCode,Intent data){
+        Bundle bd=data.getExtras();
+        username = bd.getCharSequence("username").toString();
+        cookies =bd.getCharSequence("cookies").toString();
+        ShareHelper sh=new ShareHelper(getApplicationContext());
+        sh.save(username,cookies);
+        onCreate(null);
     }
 
     @Override
@@ -100,9 +115,13 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
         listview = (ListView)findViewById(R.id.listview);
         btn_start = (Button)findViewById(R.id.btn_start);
         btn_stop = (Button)findViewById(R.id.btn_stop);
+        btn_logout=(Button)findViewById(R.id.btn_logout);
+        btn_quit=(Button)findViewById(R.id.btn_quit);
 
         btn_start.setOnClickListener(this);
         btn_stop.setOnClickListener(this);
+        btn_logout.setOnClickListener(this);
+        btn_quit.setOnClickListener(this);
 
         listview.setOnItemClickListener(new AdapterView.OnItemClickListener(){
             @Override
@@ -135,8 +154,6 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
                 }else {
                     Toast.makeText(getApplicationContext(),"已有实例在进行，请停止后操作",Toast.LENGTH_LONG).show();
                 }
-
-
                 Log.i("ADT","btnstart");
                 break;
             case R.id.btn_stop:
@@ -145,6 +162,19 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
                 firstStart=true;
                 tv_log.setText("");
                 break;
+            case R.id.btn_logout:
+                ShareHelper sp=new ShareHelper(getApplicationContext());
+                sp.clean();
+                onCreate(null);
+                break;
+            case R.id.btn_quit:
+                finish();
         }
+    }
+
+    @Override
+    public void onBackPressed(){
+        Log.i("ADT","BackPressed");
+        onStop();
     }
 }

@@ -454,17 +454,12 @@ public class ChaoXing extends Service implements Serializable {
                         m.find();
                         String dtoken = m.group(1);
 
-                        String playingTime = "114";
-                        String enc=new String();
-                        HttpURLConnection getwork=(HttpURLConnection)new URL("https://mooc1-2.chaoxing.com/multimedia/log/"+dtoken+"?userid="+userid + "&rt=0.9&jobid=" + jobid + "&dtype=Video&objectId=" + objectid + "&clazzId=" + clazzid + "&clipTime=" + "0_" + duration + "&otherInfo=" + otherInfo + "&duration=" + duration + "&view=pc&playingTime=" +
-                                playingTime + "&isdrag=3&enc=" + enc).openConnection();
-
-                        resp="{\"isPassed\":false}";
                         Log.i("ADT","duration="+duration);
 
                         this.url=url;
                         this.duration=duration;
-                        this.newplayingTime=playingTime;
+                        ShareHelper sp=new ShareHelper(getApplicationContext());
+                        this.newplayingTime=sp.readprogress(missionList);
                         this.clazzid=clazzid;
                         this.userid=userid;
                         this.jobid=jobid;
@@ -523,6 +518,8 @@ public class ChaoXing extends Service implements Serializable {
                 //Log.i("ADT","resp="+resp);
                 message("resp="+resp,1);
                 newplayingTime = String.valueOf(Integer.parseInt(newplayingTime)+114);
+                ShareHelper sp=new ShareHelper(getApplicationContext());
+                sp.saveprogress(missionList,newplayingTime);
                 Log.i("ADT","playingTime="+newplayingTime);
                 message("playingTime="+newplayingTime,1);
                 refreshNotification((int)(Float.parseFloat(newplayingTime)/Integer.parseInt(duration)*100),duration+":"+missionList);
@@ -531,7 +528,7 @@ public class ChaoXing extends Service implements Serializable {
                     intent.setAction("playvideo");
                     PendingIntent pendingIntent=PendingIntent.getForegroundService(ChaoXing.this,0,intent,0);
                     AlarmManager am=(AlarmManager)getSystemService(ALARM_SERVICE);
-                    am.setExact(AlarmManager.RTC_WAKEUP,System.currentTimeMillis()+114000,pendingIntent);
+                    am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,System.currentTimeMillis()+114000,pendingIntent);
                 }else {
                     dotest(url,myCookies,clazzid,courseId,knowledgeid,"1");
                 }
