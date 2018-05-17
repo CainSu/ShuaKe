@@ -11,8 +11,8 @@
         android:layout_height="wrap_content"
         android:layout_centerHorizontal="true"
         android:layout_marginTop="40dp"
-        android:text="刷课"
-        android:textSize="50sp"
+        android:text="超星高效学习平台"
+        android:textSize="45sp"
         android:textStyle="bold" />
 
     <TextView

@@ -71,6 +71,7 @@ public class ChaoXing extends Service implements Serializable {
     private ArrayList<String> courseLinks;
     private int startindex;
     private String url,duration,newplayingTime,clazzid,userid,jobid,objectid,dtoken,courseId,knowledgeid,otherInfo;
+    private PowerManager.WakeLock wakeLock;
 
     public ChaoXing(){
         super();
@@ -103,7 +104,7 @@ public class ChaoXing extends Service implements Serializable {
         Notification notification = new NotificationCompat.Builder(this,"ChaoXingShuaKeid")
         .setAutoCancel(false)
         .setOngoing(true)
-        .setSmallIcon(R.mipmap.ic_launcher)
+        .setSmallIcon(R.mipmap.pikaqiu_foreground)
         .setContentTitle("超星刷课")
         .setContentText("正在运行...")
         .setContentIntent(shuaPendingIntent)
@@ -111,6 +112,9 @@ public class ChaoXing extends Service implements Serializable {
 
         startForeground(1,notification);
         //manager.notify(1,notification);
+        PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
+        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MyWakelockTag");
+        wakeLock.acquire();
     }
 
     @Override
@@ -138,6 +142,7 @@ public class ChaoXing extends Service implements Serializable {
     public void onDestroy(){
         flag = true;
         stopForeground(STOP_FOREGROUND_REMOVE);
+        wakeLock.release();
         super.onDestroy();
         Log.i("ADT","onDestory");
     }
@@ -518,6 +523,7 @@ public class ChaoXing extends Service implements Serializable {
                 //Log.i("ADT","resp="+resp);
                 message("resp="+resp,1);
                 newplayingTime = String.valueOf(Integer.parseInt(newplayingTime)+114);
+                if(Integer.parseInt(newplayingTime)>Integer.parseInt(duration))newplayingTime=duration;
                 ShareHelper sp=new ShareHelper(getApplicationContext());
                 sp.saveprogress(missionList,newplayingTime);
                 Log.i("ADT","playingTime="+newplayingTime);
@@ -530,6 +536,7 @@ public class ChaoXing extends Service implements Serializable {
                     AlarmManager am=(AlarmManager)getSystemService(ALARM_SERVICE);
                     am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,System.currentTimeMillis()+114000,pendingIntent);
                 }else {
+                    sp.cleanprogress(missionList);
                     dotest(url,myCookies,clazzid,courseId,knowledgeid,"1");
                 }
 
@@ -578,7 +585,7 @@ public class ChaoXing extends Service implements Serializable {
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this,"ChaoXingShuaKeid")
                 .setContentIntent(shuaPendingIntent)
                 //设置小图标
-                .setSmallIcon(R.mipmap.ic_launcher_round)
+                .setSmallIcon(R.mipmap.pikaqiu_foreground)
                 //设置通知标题1
                 .setContentTitle("超星刷课")
                 //设置通知内容
@@ -961,21 +968,6 @@ public class ChaoXing extends Service implements Serializable {
         return null;
     }
 
-    public void Getanswer(String url,String Cookies){
-        final Map<String,String> mission = findmission(url,Cookies);
-        Matcher m = Pattern.compile("chapterId=(\\d+)&courseId=(\\d+)&clazzid=(\\d+)").matcher(mission.get("link"));
-        m.find();
-        final String knowledgeid = m.group(1);
-        final String courseId = m.group(2);
-        final String clazzid = m.group(3);
-        new Thread(){
-            @Override
-            public void run(){
-                dotest(mission.get("link"),myCookies,clazzid,courseId,knowledgeid,"1");
-            }
-        }.start();
-    }
-
     private void message(String string,int what){
         Message msg=new Message();
         Bundle bd=new Bundle();
@@ -984,5 +976,4 @@ public class ChaoXing extends Service implements Serializable {
         msg.setData(bd);
         ShuaActivity.handler.sendMessage(msg);
     }
-
 }

@@ -47,6 +47,13 @@ public class ShareHelper {
         return sp.getString(title,"114");
     }
 
+    public void cleanprogress(String title){
+        SharedPreferences sp=mContext.getSharedPreferences("data",Context.MODE_PRIVATE);
+        SharedPreferences.Editor editor=sp.edit();
+        editor.remove(title);
+        editor.commit();
+    }
+
     public void clean(){
         save("","");
     }

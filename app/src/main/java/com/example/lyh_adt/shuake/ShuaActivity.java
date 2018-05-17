@@ -45,7 +45,6 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
     private String cookies;
     private Boolean firstStart=true;
     public static Handler handler;
-    private PowerManager.WakeLock wakeLock;
     private Button btn_logout;
     private Button btn_quit;
 
@@ -95,12 +94,21 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
 
     @Override
     protected void onActivityResult(int requestCode,int resultCode,Intent data){
+        Log.i("ADT","onActivityResult");
         Bundle bd=data.getExtras();
         username = bd.getCharSequence("username").toString();
         cookies =bd.getCharSequence("cookies").toString();
         ShareHelper sh=new ShareHelper(getApplicationContext());
         sh.save(username,cookies);
-        onCreate(null);
+
+        Map<String,LinkedList<String>> map = chaoXing.getCourseList(cookies);
+        courseList = map.get("courseList");
+        courseLinks = map.get("courseLinks");
+        Log.i("ADT","courseList"+courseList.toString());
+
+        tv_usrname.setText(username);
+        mAdapter = new CourseListAdapter((LinkedList<String>)courseList,ShuaActivity.this);
+        listview.setAdapter(mAdapter);
     }
 
     @Override
@@ -137,9 +145,6 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
         Log.i("ADT","onClick");
         switch (v.getId()){
             case R.id.btn_start:
-                PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
-                wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MyWakelockTag");
-                wakeLock.acquire();
                 it1 = new Intent(ShuaActivity.this,ChaoXing.class);
                 it1.setAction("init");
                 Bundle b1 = new Bundle();
@@ -157,7 +162,6 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
                 Log.i("ADT","btnstart");
                 break;
             case R.id.btn_stop:
-                wakeLock.release();
                 stopService(it1);
                 firstStart=true;
                 tv_log.setText("");
@@ -165,7 +169,8 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
             case R.id.btn_logout:
                 ShareHelper sp=new ShareHelper(getApplicationContext());
                 sp.clean();
-                onCreate(null);
+                Intent it1=new Intent (getApplicationContext(),MainActivity.class);
+                startActivityForResult(it1,0);
                 break;
             case R.id.btn_quit:
                 finish();
