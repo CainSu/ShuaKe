@@ -16,14 +16,14 @@
         android:textStyle="bold" />
 
     <TextView
+        android:id="@+id/textView_school"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentStart="true"
         android:layout_alignParentTop="true"
         android:layout_marginTop="150dp"
         android:text="学校：南华大学"
-        android:textSize="25sp"
-        android:id="@+id/textView_school" />
+        android:textSize="25sp" />
 
     <TextView
         android:layout_width="wrap_content"

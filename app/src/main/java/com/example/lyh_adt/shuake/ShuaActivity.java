@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -13,6 +14,7 @@ import android.os.Message;
 import android.os.PowerManager;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.LinearLayoutCompat;
 import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
@@ -36,7 +38,7 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
     private ListView listview;
     private ChaoXing chaoXing = new ChaoXing();
     private CourseListAdapter mAdapter = null;
-    private LinkedList<String> courseList = null;
+    private LinkedList<String> courseList = new LinkedList<String>();
     private LinkedList<String> courseLinks = null;
     private Button btn_start;
     private Button btn_stop;
@@ -53,43 +55,47 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_shua);
 
+        handler=new Handler(){
+            @Override
+            public void handleMessage(Message msg){
+                Bundle bd=msg.getData();
+                switch (msg.what){
+                    case 1:
+                        tv_log.append(bd.getString("log")+"\n");
+                        tv_log.scrollTo(0,tv_log.getLineCount()*tv_log.getLineHeight()-tv_log.getHeight());
+                        break;
+                    case 2:
+                        tv_log.setText(bd.getString("log"));
+                        break;
+                }
+            }
+        };
+
+        bindViews();
+
+        mAdapter = new CourseListAdapter((LinkedList<String>)courseList,ShuaActivity.this);
+        listview.setAdapter(mAdapter);
+
         ShareHelper sh=new ShareHelper(getApplicationContext());
         Map<String,String> data=sh.read();
-        if(!data.get("username").equals("")){
+
+        if(!data.get("username").equals("") && courseList.isEmpty()){
             username=data.get("username");
             cookies=data.get("cookies");
+
+            Map<String,LinkedList<String>> map = chaoXing.getCourseList(cookies);
+            courseList = map.get("courseList");
+            courseLinks = map.get("courseLinks");
+            mAdapter.set(courseList);
+            Log.i("ADT","courseList"+courseList.toString());
+            tv_usrname.setText(username);
+
         }
         else {
             Log.i("ADT","进入登录界面");
             Intent it1=new Intent (getApplicationContext(),MainActivity.class);
-            startActivityForResult(it1,0);
+            startActivityForResult(it1,1);
         }
-
-        Map<String,LinkedList<String>> map = chaoXing.getCourseList(cookies);
-        courseList = map.get("courseList");
-        courseLinks = map.get("courseLinks");
-        Log.i("ADT","courseList"+courseList.toString());
-        bindViews();
-
-        tv_usrname.setText(username);
-        mAdapter = new CourseListAdapter((LinkedList<String>)courseList,ShuaActivity.this);
-        listview.setAdapter(mAdapter);
-
-        handler=new Handler(){
-            @Override
-            public void handleMessage(Message msg){
-                    Bundle bd=msg.getData();
-                    switch (msg.what){
-                        case 1:
-                            tv_log.append(bd.getString("log")+"\n");
-                            tv_log.scrollTo(0,tv_log.getLineCount()*tv_log.getLineHeight()-tv_log.getHeight());
-                            break;
-                        case 2:
-                            tv_log.setText(bd.getString("log"));
-                            break;
-                    }
-            }
-        };
     }
 
     @Override
@@ -107,8 +113,7 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
         Log.i("ADT","courseList"+courseList.toString());
 
         tv_usrname.setText(username);
-        mAdapter = new CourseListAdapter((LinkedList<String>)courseList,ShuaActivity.this);
-        listview.setAdapter(mAdapter);
+        mAdapter.set(courseList);
     }
 
     @Override
@@ -152,9 +157,12 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
                 b1.putSerializable("courseLinks",courseLinks);
                 b1.putInt("startIndex",selectedCourse);
                 it1.putExtras(b1);
-                //startService(it1);
+                //
                 if(firstStart){
-                    startForegroundService(it1);
+                    if(Build.VERSION.SDK_INT>26)
+                        startService(it1);
+                    else
+                        startService(it1);
                     firstStart=false;
                 }else {
                     Toast.makeText(getApplicationContext(),"已有实例在进行，请停止后操作",Toast.LENGTH_LONG).show();

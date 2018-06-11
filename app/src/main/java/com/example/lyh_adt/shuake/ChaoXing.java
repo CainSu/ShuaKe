@@ -11,10 +11,12 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentSender;
+import android.content.res.XmlResourceParser;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 
 import android.os.Binder;
+import android.os.Build;
 import android.os.Bundle;
 
 import android.os.Handler;
@@ -30,6 +32,7 @@ import android.telecom.Call;
 import android.util.Log;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Serializable;
@@ -54,6 +57,11 @@ import java.util.TimerTask;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
+import javax.xml.parsers.*;
+import org.w3c.dom.*;
+import org.w3c.dom.NodeList;
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
 
 import javax.security.auth.callback.Callback;
 
@@ -72,6 +80,7 @@ public class ChaoXing extends Service implements Serializable {
     private int startindex;
     private String url,duration,newplayingTime,clazzid,userid,jobid,objectid,dtoken,courseId,knowledgeid,otherInfo;
     private PowerManager.WakeLock wakeLock;
+    private String answerString=null;
 
     public ChaoXing(){
         super();
@@ -87,17 +96,19 @@ public class ChaoXing extends Service implements Serializable {
         super.onCreate();
 
         Intent shuaIntent = new Intent(this,ShuaActivity.class);
+        Log.i("ADT","SDK"+Build.VERSION.SDK_INT);
 
-        NotificationChannel notificationChannel = null;
-        notificationChannel = new NotificationChannel("ChaoXingShuaKeid","ShuaKeChaoXing",NotificationManager.IMPORTANCE_HIGH);
-        notificationChannel.enableLights(false);
-        notificationChannel.enableVibration(false);
-        notificationChannel.setShowBadge(true);
-        notificationChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+        if(Build.VERSION.SDK_INT>26) {
+            NotificationChannel notificationChannel = null;
+            notificationChannel = new NotificationChannel("ChaoXingShuaKeid", "ShuaKeChaoXing", NotificationManager.IMPORTANCE_HIGH);
+            notificationChannel.enableLights(false);
+            notificationChannel.enableVibration(false);
+            notificationChannel.setShowBadge(true);
+            notificationChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
 
-        NotificationManager manager=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);
-        manager.createNotificationChannel(notificationChannel);
-
+            NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+            manager.createNotificationChannel(notificationChannel);
+        }
 
         PendingIntent shuaPendingIntent = PendingIntent.getActivity(this,0,shuaIntent,PendingIntent.FLAG_UPDATE_CURRENT);
 
@@ -182,6 +193,7 @@ public class ChaoXing extends Service implements Serializable {
                     postlogin.setRequestProperty("User-Agent","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
                     postlogin.setRequestProperty("Referer","http://passport2.chaoxing.com/login?refer=http%3A%2F%2Fi.mooc.chaoxing.com");
                     postlogin.setRequestProperty("Origin","http://passport2.chaoxing.com");
+                    postlogin.setConnectTimeout(5000);
                     postlogin.setDoOutput(true);
                     postlogin.setUseCaches(false);
                     StringBuffer params = new StringBuffer();
@@ -354,6 +366,7 @@ public class ChaoXing extends Service implements Serializable {
                     getMission.setRequestProperty("User-Agent","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
                     getMission.setRequestProperty("Referer","http://mooc1-2.chaoxing.com/visit/interaction");
                     getMission.setRequestProperty("Cookie",myCookies);
+                    getMission.setConnectTimeout(5000);
 
                     if (getMission.getResponseCode() == 200) {
                         InputStream is = getMission.getInputStream();
@@ -368,7 +381,7 @@ public class ChaoXing extends Service implements Serializable {
                         getMission.disconnect();
                         String resp = sb.toString();
                         //Log.i("ADT","findmissionresp="+resp);
-                        Matcher m = Pattern.compile("<em class=\"orange\">(\\d)</em>[\\s\\n]*</span>[\\s\\n]*<span class=\"articlename\">[\\s\\n]*<a href='([\\/\\w?=&;]+)' title=\"(.+)\"\\s*>").matcher(resp);
+                        Matcher m = Pattern.compile("<em class=\"orange\">(\\d)</em>[\\s\\n]*</span>[\\s\\n]*<span class=\"articlename\">[\\s\\n\\d.]*<a href='([\\/\\w?=&;]+)' title=\"(.+)\"\\s*>").matcher(resp);
                         if (m.find()){
                             Log.i("ADT","missioncount="+m.group(1)+" link:"+m.group(2)+" title:"+m.group(3).substring(0,25));
                             mission.put("list",m.group(3).replaceAll("[^\\u4e00-\\u9fa5]",""));
@@ -401,6 +414,7 @@ public class ChaoXing extends Service implements Serializable {
             gettovideo.setRequestMethod("GET");
             gettovideo.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
             gettovideo.setRequestProperty("Cookie", myCookies);
+            gettovideo.setConnectTimeout(5000);
 
             if (gettovideo.getResponseCode() == 200) {
                 InputStream is = gettovideo.getInputStream();
@@ -439,6 +453,7 @@ public class ChaoXing extends Service implements Serializable {
                     getstatus.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
                     getstatus.setRequestProperty("Referer", "https://mooc1-2.chaoxing.com/ananas/modules/video/index.html?v=2018-0126-1905");
                     getstatus.setRequestProperty("Cookie",myCookies);
+                    getstatus.setConnectTimeout(5000);
 
                     if (getstatus.getResponseCode() == 200) {
                         is = getstatus.getInputStream();
@@ -502,6 +517,7 @@ public class ChaoXing extends Service implements Serializable {
             getwork.setRequestProperty("Referer", "https://mooc1-2.chaoxing.com/ananas/modules/video/index.html?v=2018-0126-1905");
             getwork.setRequestProperty("X - Requested - With", "XMLHttpRequest");
             getwork.setRequestProperty("Cookie",myCookies);
+            getwork.setConnectTimeout(5000);
 
             int code =getwork.getResponseCode();
             Log.i("ADT","code="+code);
@@ -532,7 +548,7 @@ public class ChaoXing extends Service implements Serializable {
                 if(resp.equals("{\"isPassed\":false}")){
                     Intent intent=new Intent(ChaoXing.this,ChaoXing.class);
                     intent.setAction("playvideo");
-                    PendingIntent pendingIntent=PendingIntent.getForegroundService(ChaoXing.this,0,intent,0);
+                    PendingIntent pendingIntent=PendingIntent.getService(ChaoXing.this,0,intent,0);
                     AlarmManager am=(AlarmManager)getSystemService(ALARM_SERVICE);
                     am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,System.currentTimeMillis()+114000,pendingIntent);
                 }else {
@@ -602,6 +618,7 @@ public class ChaoXing extends Service implements Serializable {
             resp.setRequestMethod("GET");
             resp.setRequestProperty("Cookie",myCookies);
             resp.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
+            resp.setConnectTimeout(5000);
 
             if (resp.getResponseCode()==200) {
                 InputStream is = resp.getInputStream();
@@ -626,6 +643,7 @@ public class ChaoXing extends Service implements Serializable {
                 resp.setRequestProperty("Cookie",myCookies);
                 resp.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
                 resp.setRequestProperty("Referer","https://mooc1-2.chaoxing.com"+url);
+                resp.setConnectTimeout(5000);
 
                 if (resp.getResponseCode()==200) {
                     is = resp.getInputStream();
@@ -655,6 +673,7 @@ public class ChaoXing extends Service implements Serializable {
                         resp.setRequestProperty("Cookie",myCookies);
                         resp.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
                         resp.setInstanceFollowRedirects(true);
+                        resp.setConnectTimeout(5000);
 
                         if (resp.getResponseCode()==200) {
                             is = resp.getInputStream();
@@ -712,9 +731,11 @@ public class ChaoXing extends Service implements Serializable {
 
                                 Log.i("ADT","question="+m.group(1));
                                 message("question="+m.group(1),1);
+
                                 answer = getAnswer(m.group(1),0);
-                                Answer += answer;
+
                                 if(answer==null)throw new Exception("Empty return answer");
+                                Answer += answer;
                                 Log.i("ADT","answer="+answer);
                                 message("answer="+answer,1);
                                 if (answer.contains("√")){
@@ -773,6 +794,7 @@ public class ChaoXing extends Service implements Serializable {
                             resp.setRequestProperty("Referer","https://mooc1-2.chaoxing.com/work/doHomeWorkNew?courseId="+courseid+"&workId="+workId+"&api=1&knowledgeid="+knowledgeid+"&classId="+clazzid+"&oldWorkId="+workId+"&jobid=work-"+workId+"&type=&isphone=false&enc="+enc);
                             resp.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
                             resp.setUseCaches(false);
+                            resp.setConnectTimeout(5000);
                             byte[] bytes = params.toString().getBytes();
                             resp.getOutputStream().write(bytes);
 
@@ -815,6 +837,7 @@ public class ChaoXing extends Service implements Serializable {
             HttpURLConnection resp = (HttpURLConnection)new URL("https://www.baidu.com/s?ie=utf-8&wd="+question).openConnection();
             resp.setRequestMethod("GET");
             resp.setRequestProperty("User-Agent","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
+            resp.setConnectTimeout(5000);
 
 
             if (resp.getResponseCode()==200) {
@@ -843,6 +866,7 @@ public class ChaoXing extends Service implements Serializable {
                 resp.setRequestMethod("GET");
                 resp.setInstanceFollowRedirects(true);
                 resp.setRequestProperty("User-Agent","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
+                resp.setConnectTimeout(5000);
 
                 Log.i("ADT","responsecode="+resp.getResponseCode());
                 if(resp.getResponseCode()==302){
@@ -851,6 +875,7 @@ public class ChaoXing extends Service implements Serializable {
                     resp.setRequestMethod("GET");
                     resp.setInstanceFollowRedirects(true);
                     resp.setRequestProperty("User-Agent","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
+                    resp.setConnectTimeout(5000);
                 }
                 Log.i("ADT","responsecode2="+resp.getResponseCode());
                 if (resp.getResponseCode()==200) {
@@ -895,6 +920,7 @@ public class ChaoXing extends Service implements Serializable {
             HttpURLConnection resp = (HttpURLConnection)new URL("https://www.zhengjie.com/s?type=question&q="+question).openConnection();
             resp.setRequestMethod("GET");
             resp.setRequestProperty("User-Agent","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
+            resp.setConnectTimeout(5000);
 
 
             if (resp.getResponseCode()==200) {
@@ -923,6 +949,7 @@ public class ChaoXing extends Service implements Serializable {
                 resp.setRequestMethod("GET");
                 resp.setInstanceFollowRedirects(true);
                 resp.setRequestProperty("User-Agent","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
+                resp.setConnectTimeout(5000);
 
                 Log.i("ADT","responsecode="+resp.getResponseCode());
                 if(resp.getResponseCode()==302){
@@ -931,6 +958,7 @@ public class ChaoXing extends Service implements Serializable {
                     resp.setRequestMethod("GET");
                     resp.setInstanceFollowRedirects(true);
                     resp.setRequestProperty("User-Agent","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
+                    resp.setConnectTimeout(5000);
                 }
                 Log.i("ADT","responsecode2="+resp.getResponseCode());
                 if (resp.getResponseCode()==200) {
@@ -967,6 +995,7 @@ public class ChaoXing extends Service implements Serializable {
         }
         return null;
     }
+
 
     private void message(String string,int what){
         Message msg=new Message();
