@@ -49,6 +49,7 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
     public static Handler handler;
     private Button btn_logout;
     private Button btn_quit;
+    private pl.droidsonroids.gif.GifImageView iv_loading;
 
     @Override
     public void onCreate(Bundle savedInstanceState){
@@ -67,6 +68,14 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
                     case 2:
                         tv_log.setText(bd.getString("log"));
                         break;
+                    case 3:
+                        courseList = (LinkedList<String>)bd.getSerializable("CourseList");
+                        courseLinks = (LinkedList<String>)bd.getSerializable("CourseLinks");
+
+                        Log.i("ADT","courseList"+courseList.toString());
+                        iv_loading.setVisibility(View.GONE);
+                        listview.setVisibility(View.VISIBLE);
+                        mAdapter.set(courseList);
                 }
             }
         };
@@ -76,6 +85,9 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
         mAdapter = new CourseListAdapter((LinkedList<String>)courseList,ShuaActivity.this);
         listview.setAdapter(mAdapter);
 
+        iv_loading.setVisibility(View.VISIBLE);
+        listview.setVisibility(View.GONE);
+
         ShareHelper sh=new ShareHelper(getApplicationContext());
         Map<String,String> data=sh.read();
 
@@ -83,11 +95,12 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
             username=data.get("username");
             cookies=data.get("cookies");
 
-            Map<String,LinkedList<String>> map = chaoXing.getCourseList(cookies);
-            courseList = map.get("courseList");
-            courseLinks = map.get("courseLinks");
-            mAdapter.set(courseList);
-            Log.i("ADT","courseList"+courseList.toString());
+            chaoXing.getCourseList(cookies);
+//            Map<String,LinkedList<String>> map = chaoXing.getCourseList(cookies);
+//            courseList = map.get("courseList");
+//            courseLinks = map.get("courseLinks");
+//            mAdapter.set(courseList);
+//            Log.i("ADT","courseList"+courseList.toString());
             tv_usrname.setText(username);
 
         }
@@ -107,13 +120,14 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
         ShareHelper sh=new ShareHelper(getApplicationContext());
         sh.save(username,cookies);
 
-        Map<String,LinkedList<String>> map = chaoXing.getCourseList(cookies);
-        courseList = map.get("courseList");
-        courseLinks = map.get("courseLinks");
-        Log.i("ADT","courseList"+courseList.toString());
+        chaoXing.getCourseList(cookies);
+//        Map<String,LinkedList<String>> map = chaoXing.getCourseList(cookies);
+//        courseList = map.get("courseList");
+//        courseLinks = map.get("courseLinks");
+//        Log.i("ADT","courseList"+courseList.toString());
 
         tv_usrname.setText(username);
-        mAdapter.set(courseList);
+        //mAdapter.set(courseList);
     }
 
     @Override
@@ -130,6 +144,7 @@ public class ShuaActivity extends AppCompatActivity implements View.OnClickListe
         btn_stop = (Button)findViewById(R.id.btn_stop);
         btn_logout=(Button)findViewById(R.id.btn_logout);
         btn_quit=(Button)findViewById(R.id.btn_quit);
+        iv_loading = (pl.droidsonroids.gif.GifImageView)findViewById(R.id.iv_loading);
 
         btn_start.setOnClickListener(this);
         btn_stop.setOnClickListener(this);

@@ -30,6 +30,7 @@ import android.support.v4.app.NotificationCompat;
 import android.support.v4.content.LocalBroadcastManager;
 import android.telecom.Call;
 import android.util.Log;
+import android.widget.Toast;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -256,7 +257,7 @@ public class ChaoXing extends Service implements Serializable {
         return username;
     }
 
-    public Map<String,LinkedList<String>> getCourseList(final String myCookies){
+    public void getCourseList(final String myCookies){
         final LinkedList<String> courseLinks = new LinkedList<String>();
         final LinkedList<String> courseList = new LinkedList<String>();
         Map<String,LinkedList<String>> map = new HashMap<String,LinkedList<String>>();
@@ -275,32 +276,44 @@ public class ChaoXing extends Service implements Serializable {
 
                     getCourseList.addRequestProperty("Cookie",myCookies);
 
-                    if (getCourseList.getResponseCode() == 200){
-                        InputStream is = getCourseList.getInputStream();
-                        BufferedReader reader = new BufferedReader(new InputStreamReader(is));
-                        StringBuilder sb = new StringBuilder();
-                        String line = null;
-                        while ((line = reader.readLine()) != null) {
-                            //Log.i("ADT","line="+line);
-                            sb.append(line + "\n");
-                        }
-                        is.close();
-                        getCourseList.disconnect();
-                        String resp = sb.toString();
-                        //Log.i("ADT","resp="+sb.toString());
-                        //Log.i("ADT","resp="+resp);
+                    String resp = getResponeText(getCourseList);
+
+                    getCourseList.disconnect();
+
+//                    if (getCourseList.getResponseCode() == 200){
+//                        InputStream is = getCourseList.getInputStream();
+//                        BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+//                        StringBuilder sb = new StringBuilder();
+//                        String line = null;
+//                        while ((line = reader.readLine()) != null) {
+//                            //Log.i("ADT","line="+line);
+//                            sb.append(line + "\n");
+//                        }
+//                        is.close();
+//                        getCourseList.disconnect();
+//                        String resp = sb.toString();
+//                        //Log.i("ADT","resp="+sb.toString());
+//                        //Log.i("ADT","resp="+resp);
 
 
 
-                        Matcher m = Pattern.compile("<div class=\"Mconright httpsClass\">[\\n\\s]*<h3 class=\"clearfix\" >[\\n\\s]*<a  href='([\\w\\/?=&]*)'[\\n\\s]*target=\"_blank\" title=\"([\\u4e00-\\u9fa5()（）\\w-]*)\">").matcher(resp);
-                        while (m.find()){
-                            //Log.i("ADT","total:"+m.groupCount());
-                            Log.i("ADT","link:"+m.group(1)+"title:"+m.group(2));
-                            courseLinks.add("https://mooc1-2.chaoxing.com"+m.group(1));
-                            courseList.add(m.group(2));
-                        }
-                        flag = true;
+                    Matcher m = Pattern.compile("<div class=\"Mconright httpsClass\">[\\n\\s]*<h3 class=\"clearfix\" >[\\n\\s]*<a  href='([\\w\\/?=&]*)'[\\n\\s]*target=\"_blank\" title=\"([\\u4e00-\\u9fa5()（）\\w-]*)\">").matcher(resp);
+                    while (m.find()){
+                        //Log.i("ADT","total:"+m.groupCount());
+                        Log.i("ADT","link:"+m.group(1)+"title:"+m.group(2));
+                        courseLinks.add("https://mooc1-2.chaoxing.com"+m.group(1));
+                        courseList.add(m.group(2));
                     }
+                    Bundle bd = new Bundle();
+                    bd.putSerializable("CourseList",courseList);
+                    bd.putSerializable("CourseLinks",courseLinks);
+
+                    Message msg = new Message();
+                    msg.what=3;
+                    msg.setData(bd);
+                    ShuaActivity.handler.sendMessage(msg);
+                    //flag = true;
+                  //}
 
                 }catch (Exception e){
                     e.printStackTrace();
@@ -309,11 +322,10 @@ public class ChaoXing extends Service implements Serializable {
             }
         }.start();
 
-        while(flag == false);
-        flag = false;
-        map.put("courseList",courseList);
-        map.put("courseLinks",courseLinks);
-        return map;
+//        while(flag == false);
+//        flag = false;
+//        map.put("courseList",courseList);
+//        map.put("courseLinks",courseLinks);
     }
 
     public String getCoookies(){
@@ -357,7 +369,6 @@ public class ChaoXing extends Service implements Serializable {
         }.start();
     }
 
-
     private Map<String,String> findmission(final String url,final String myCookies){
         Map<String,String> mission = new HashMap<String,String>();
                 try {
@@ -368,26 +379,30 @@ public class ChaoXing extends Service implements Serializable {
                     getMission.setRequestProperty("Cookie",myCookies);
                     getMission.setConnectTimeout(5000);
 
-                    if (getMission.getResponseCode() == 200) {
-                        InputStream is = getMission.getInputStream();
-                        BufferedReader reader = new BufferedReader(new InputStreamReader(is));
-                        StringBuilder sb = new StringBuilder();
-                        String line = null;
-                        while ((line = reader.readLine()) != null) {
-                            //Log.i("ADT", line);
-                            sb.append(line);
-                        }
-                        is.close();
-                        getMission.disconnect();
-                        String resp = sb.toString();
-                        //Log.i("ADT","findmissionresp="+resp);
-                        Matcher m = Pattern.compile("<em class=\"orange\">(\\d)</em>[\\s\\n]*</span>[\\s\\n]*<span class=\"articlename\">[\\s\\n\\d.]*<a href='([\\/\\w?=&;]+)' title=\"(.+)\"\\s*>").matcher(resp);
-                        if (m.find()){
-                            Log.i("ADT","missioncount="+m.group(1)+" link:"+m.group(2)+" title:"+m.group(3).substring(0,25));
-                            mission.put("list",m.group(3).replaceAll("[^\\u4e00-\\u9fa5]",""));
-                            mission.put("link",m.group(2));
-                        }
+//                    if (getMission.getResponseCode() == 200) {
+//                        InputStream is = getMission.getInputStream();
+//                        BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+//                        StringBuilder sb = new StringBuilder();
+//                        String line = null;
+//                        while ((line = reader.readLine()) != null) {
+//                            //Log.i("ADT", line);
+//                            sb.append(line);
+//                        }
+//                        is.close();
+//                        getMission.disconnect();
+//                        String resp = sb.toString();
+
+                    String resp = getResponeText(getMission);
+                    getMission.disconnect();
+
+                    //Log.i("ADT","findmissionresp="+resp);
+                    Matcher m = Pattern.compile("<em class=\"orange\">(\\d)</em>[\\s\\n]*</span>[\\s\\n]*<span class=\"articlename\">[\\s\\n\\d.]*<a href='([\\/\\w?=&;]+)' title=\"(.+?)\"\\s*>").matcher(resp);
+                    if (m.find()){
+                        Log.i("ADT","missioncount="+m.group(1)+" link:"+m.group(2)+" title:"+m.group(3).substring(0,25));
+                        mission.put("list",m.group(3).replaceAll("[^\\u4e00-\\u9fa5]",""));
+                        mission.put("link",m.group(2));
                     }
+                    //}
 
                 }catch (Exception e){
                     e.printStackTrace();
@@ -416,88 +431,95 @@ public class ChaoXing extends Service implements Serializable {
             gettovideo.setRequestProperty("Cookie", myCookies);
             gettovideo.setConnectTimeout(5000);
 
-            if (gettovideo.getResponseCode() == 200) {
-                InputStream is = gettovideo.getInputStream();
-                BufferedReader reader = new BufferedReader(new InputStreamReader(is));
-                StringBuilder sb = new StringBuilder();
-                String line = null;
-                while ((line = reader.readLine()) != null) {
-                    //Log.i("ADT", "line=" + line);
-                    sb.append(line + "\n");
-                }
-                is.close();
-                gettovideo.disconnect();
-                String resp = sb.toString();
+//            if (gettovideo.getResponseCode() == 200) {
+//                InputStream is = gettovideo.getInputStream();
+//                BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+//                StringBuilder sb = new StringBuilder();
+//                String line = null;
+//                while ((line = reader.readLine()) != null) {
+//                    //Log.i("ADT", "line=" + line);
+//                    sb.append(line + "\n");
+//                }
+//                is.close();
+//                gettovideo.disconnect();
+//                String resp = sb.toString();
 
-                m = Pattern.compile("jobid\":\"(\\d+)").matcher(resp);
-                if(m.find()){
-                    String jobid=m.group(1);
-                    m = Pattern.compile("otherInfo\":\"(\\w+)\"").matcher(resp);
-                    m.find();
-                    String otherInfo=m.group(1);
-                    m = Pattern.compile("objectid\":\"(\\w+)\"").matcher(resp);
-                    m.find();
-                    String objectid=m.group(1);
-                    m = Pattern.compile("fid\":\"(\\d+)").matcher(resp);
-                    m.find();
-                    String fid=m.group(1);
-                    m = Pattern.compile("userid\":\"(\\d+)\"").matcher(resp);
-                    m.find();
-                    String userid=m.group(1);
+            String resp = getResponeText(gettovideo);
+            gettovideo.disconnect();
 
-                    Log.i("ADT","jobid="+jobid+" otherInfo="+otherInfo+" objectid="+objectid+" fid="+fid+" userid="+userid);
+            m = Pattern.compile("jobid\":\"(\\d+)").matcher(resp);
+            if(m.find()){
+                String jobid=m.group(1);
+                m = Pattern.compile("otherInfo\":\"(\\w+)\"").matcher(resp);
+                m.find();
+                String otherInfo=m.group(1);
+                m = Pattern.compile("objectid\":\"(\\w+)\"").matcher(resp);
+                m.find();
+                String objectid=m.group(1);
+                m = Pattern.compile("fid\":\"(\\d+)").matcher(resp);
+                m.find();
+                String fid=m.group(1);
+                m = Pattern.compile("userid\":\"(\\d+)\"").matcher(resp);
+                m.find();
+                String userid=m.group(1);
 
-                    //获取duration,dtoken
-                    HttpURLConnection getstatus = (HttpURLConnection)new URL("https://mooc1-2.chaoxing.com/ananas/status/"+objectid+"?k="+fid).openConnection();
-                    getstatus.setRequestMethod("GET");
-                    getstatus.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
-                    getstatus.setRequestProperty("Referer", "https://mooc1-2.chaoxing.com/ananas/modules/video/index.html?v=2018-0126-1905");
-                    getstatus.setRequestProperty("Cookie",myCookies);
-                    getstatus.setConnectTimeout(5000);
+                Log.i("ADT","jobid="+jobid+" otherInfo="+otherInfo+" objectid="+objectid+" fid="+fid+" userid="+userid);
 
-                    if (getstatus.getResponseCode() == 200) {
-                        is = getstatus.getInputStream();
-                        reader = new BufferedReader(new InputStreamReader(is));
-                        sb = new StringBuilder();
-                        while ((line = reader.readLine()) != null) {
-                            //Log.i("ADT", "line=" + line);
-                            sb.append(line + "\n");
-                        }
-                        is.close();
-                        getstatus.disconnect();
-                        resp = sb.toString();
+                //获取duration,dtoken
+                HttpURLConnection getstatus = (HttpURLConnection)new URL("https://mooc1-2.chaoxing.com/ananas/status/"+objectid+"?k="+fid).openConnection();
+                getstatus.setRequestMethod("GET");
+                getstatus.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
+                getstatus.setRequestProperty("Referer", "https://mooc1-2.chaoxing.com/ananas/modules/video/index.html?v=2018-0126-1905");
+                getstatus.setRequestProperty("Cookie",myCookies);
+                getstatus.setConnectTimeout(5000);
 
-                        m = Pattern.compile("duration\":(\\d+),").matcher(resp);
-                        m.find();
-                        String duration = m.group(1);
-                        m = Pattern.compile("dtoken\":\"(\\w+)\"").matcher(resp);
-                        m.find();
-                        String dtoken = m.group(1);
+//                if (getstatus.getResponseCode() == 200) {
+//                    is = getstatus.getInputStream();
+//                    reader = new BufferedReader(new InputStreamReader(is));
+//                    sb = new StringBuilder();
+//                    while ((line = reader.readLine()) != null) {
+//                        //Log.i("ADT", "line=" + line);
+//                        sb.append(line + "\n");
+//                    }
+//                    is.close();
+//                    getstatus.disconnect();
+//                    resp = sb.toString();
 
-                        Log.i("ADT","duration="+duration);
+                resp = getResponeText(getstatus);
 
-                        this.url=url;
-                        this.duration=duration;
-                        ShareHelper sp=new ShareHelper(getApplicationContext());
-                        this.newplayingTime=sp.readprogress(missionList);
-                        this.clazzid=clazzid;
-                        this.userid=userid;
-                        this.jobid=jobid;
-                        this.objectid=objectid;
-                        this.dtoken=dtoken;
-                        this.courseId=courseId;
-                        this.knowledgeid=knowledgeid;
-                        this.otherInfo=otherInfo;
+                getstatus.disconnect();
 
-                        playVideo();
-                    }
+                m = Pattern.compile("duration\":(\\d+),").matcher(resp);
+                m.find();
+                String duration = m.group(1);
+                m = Pattern.compile("dtoken\":\"(\\w+)\"").matcher(resp);
+                m.find();
+                String dtoken = m.group(1);
+
+                Log.i("ADT","duration="+duration);
+
+                this.url=url;
+                this.duration=duration;
+                ShareHelper sp=new ShareHelper(getApplicationContext());
+                this.newplayingTime=sp.readprogress(missionList);
+                this.clazzid=clazzid;
+                this.userid=userid;
+                this.jobid=jobid;
+                this.objectid=objectid;
+                this.dtoken=dtoken;
+                this.courseId=courseId;
+                this.knowledgeid=knowledgeid;
+                this.otherInfo=otherInfo;
+
+                playVideo();
+                //}
                 }
                 else{
                     Log.e("ADT","num=0 unfind video");
                     play(url,myCookies,"1");
                 }
 
-            }
+            //}
         }catch (Exception e){
                 e.printStackTrace();
         }
@@ -519,7 +541,7 @@ public class ChaoXing extends Service implements Serializable {
             getwork.setRequestProperty("Cookie",myCookies);
             getwork.setConnectTimeout(5000);
 
-            int code =getwork.getResponseCode();
+            int code = getwork.getResponseCode();
             Log.i("ADT","code="+code);
 
             ;
@@ -620,205 +642,212 @@ public class ChaoXing extends Service implements Serializable {
             resp.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
             resp.setConnectTimeout(5000);
 
-            if (resp.getResponseCode()==200) {
-                InputStream is = resp.getInputStream();
-                BufferedReader reader = new BufferedReader(new InputStreamReader(is));
-                StringBuilder sb = new StringBuilder();
-                String line = null;
-                while ((line = reader.readLine()) != null) {
-                    sb.append(line + "\n");
-                }
-                is.close();
-                resp.disconnect();
-                msg = sb.toString();
+//            if (resp.getResponseCode()==200) {
+//                InputStream is = resp.getInputStream();
+//                BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+//                StringBuilder sb = new StringBuilder();
+//                String line = null;
+//                while ((line = reader.readLine()) != null) {
+//                    sb.append(line + "\n");
+//                }
+//                is.close();
+//                resp.disconnect();
+//                msg = sb.toString();
 
-                Matcher m = Pattern.compile("utEnc=\"(\\w+)\"").matcher(msg);
-                if(!m.find())
-                    return;
-                String utenc = m.group(1);
+            msg = getResponeText(resp);
+            resp.disconnect();
+
+            Matcher m = Pattern.compile("utEnc=\"(\\w+)\"").matcher(msg);
+            if(!m.find())
+                return;
+            String utenc = m.group(1);
 
 
-                resp = (HttpURLConnection) new URL("https://mooc1-2.chaoxing.com/knowledge/cards?clazzid="+clazzid+"&courseid="+courseid+"&knowledgeid="+knowledgeid+"&num="+num+"&v=20160407-1").openConnection();
+            resp = (HttpURLConnection) new URL("https://mooc1-2.chaoxing.com/knowledge/cards?clazzid="+clazzid+"&courseid="+courseid+"&knowledgeid="+knowledgeid+"&num="+num+"&v=20160407-1").openConnection();
+            resp.setRequestMethod("GET");
+            resp.setRequestProperty("Cookie",myCookies);
+            resp.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
+            resp.setRequestProperty("Referer","https://mooc1-2.chaoxing.com"+url);
+            resp.setConnectTimeout(5000);
+
+//            if (resp.getResponseCode()==200) {
+//                is = resp.getInputStream();
+//                reader = new BufferedReader(new InputStreamReader(is));
+//                sb = new StringBuilder();
+//                line = null;
+//                while ((line = reader.readLine()) != null) {
+//                    sb.append(line + "\n");
+//                }
+//                is.close();
+//                resp.disconnect();
+//                msg = sb.toString();
+//                //Log.i("ADT",msg);
+            msg = getResponeText(resp);
+            resp.disconnect();
+
+            m = Pattern.compile("\"workid\":\"(\\w+)\"").matcher(msg);
+            if(m.find()){
+                String workId = m.group(1);
+                String jobId = "work-"+workId;
+                m = Pattern.compile("\"enc\":\"(\\w+)\"").matcher(msg);
+                m.find();
+                String enc = m.group(1);
+
+                //获取问题
+                resp = (HttpURLConnection) new URL("https://mooc1-2.chaoxing.com/workHandle/handle?workId="+workId+"&courseid="+courseid+"&knowledgeid="+knowledgeid+"&userid=&ut=s&classId="+clazzid+"&jobid="+jobId+"&type=&isphone=false&submit=false&enc="+enc+"&utenc="+utenc).openConnection();
                 resp.setRequestMethod("GET");
+                resp.setRequestProperty("Referer","https://mooc1-2.chaoxing.com/ananas/modules/work/index.html?v=2018-0126-1905");
                 resp.setRequestProperty("Cookie",myCookies);
                 resp.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
-                resp.setRequestProperty("Referer","https://mooc1-2.chaoxing.com"+url);
+                resp.setInstanceFollowRedirects(true);
                 resp.setConnectTimeout(5000);
 
+//                if (resp.getResponseCode()==200) {
+//                    is = resp.getInputStream();
+//                    reader = new BufferedReader(new InputStreamReader(is));
+//                    sb = new StringBuilder();
+//                    line = null;
+//                    while ((line = reader.readLine()) != null) {
+//                        sb.append(line + "\n");
+//                        //Log.i("ADT",line);
+//                    }
+//                    is.close();
+//                    resp.disconnect();
+//                    msg = sb.toString();
+                msg = getResponeText(resp);
+                resp.disconnect();
+
+                m = Pattern.compile("totalQuestionNum=([\\w]+)\"").matcher(msg);
+                m.find();
+                String totalQuestionNum = m.group(1);
+
+                m = Pattern.compile("id=\"workRelationId\" value=\"(\\d+)\"").matcher(msg);
+                m.find();
+                String workRelationId = m.group(1);
+
+                m = Pattern.compile("id=\"enc_work\" value=\"(\\w+)\"").matcher(msg);
+                m.find();
+                String enc_work = m.group(1);
+
+                m = Pattern.compile("name=\"userId\" value=\"(\\d+)\"").matcher(msg);
+                m.find();
+                String userid = m.group(1);
+
+                String answer;
+                m = Pattern.compile("<div class=\"clearfix\" style=\"line-height: 35px; font-size: 14px;padding-right:15px;\">(.+)</div>").matcher(msg);
+                StringBuffer params = new StringBuffer();
+                params.append("pyFlag=").append("&")
+                        .append("api=1").append("&")
+                        .append("workAnswerId=").append("&")
+                        .append("oldSchoolId=").append("&")
+                        .append("enc=").append("&")
+                        .append("courseId=").append(courseid).append("&")
+                        .append("classId=").append(clazzid).append("&")
+                        .append("totalQuestionNum=").append(totalQuestionNum).append("&")
+                        .append("fullScore=100.0").append("&")
+                        .append("knowledgeid=").append(knowledgeid).append("&")
+                        .append("oldWorkId=").append(workId).append("&")
+                        .append("jobid=").append("work-"+workId).append("&")
+                        .append("workRelationId=").append(workRelationId).append("&")
+                        .append("enc_work=").append(enc_work).append("&")
+                        .append("userId=").append(userid);
+
+                Matcher mm;
+                String answerwqbid=null;
+                String Answer=null;
+                int Panduan=0;
+                while(m.find()){
+
+                    Log.i("ADT","question="+m.group(1));
+                    message("question="+m.group(1),1);
+
+                    answer = getAnswer(m.group(1),0);
+
+                    if(answer==null)throw new Exception("Empty return answer");
+                    Answer += answer;
+                    Log.i("ADT","answer="+answer);
+                    message("answer="+answer,1);
+                    if (answer.contains("√")){
+                        int i=0;
+                        mm = Pattern.compile("name=\"answer(\\d+)\" value=\"true\"").matcher(msg);
+                        while(mm.find()&&(i+=1)<=Panduan);
+                        {
+                            Log.i("ADT","question number="+mm.group(1));
+                            params.append("&").append("answer"+mm.group(1)+"=").append("true").append("&").append("answertype"+mm.group(1)+"=3");
+                            answerwqbid += mm.group(1)+",";
+                        }
+                        Panduan+=1;
+                    }else if(answer.contains("×")){
+                        int i=0;
+                        mm = Pattern.compile("name=\"answer(\\d+)\" value=\"false\"").matcher(msg);
+                        while(mm.find()&&(i+=1)<=Panduan);
+                        {
+                            Log.i("ADT","question number="+mm.group(1));
+                            params.append("&").append("answer"+mm.group(1)+"=").append("false").append("&").append("answertype"+mm.group(1)+"=3");
+                            answerwqbid += mm.group(1)+",";
+                        }
+                        Panduan+=1;
+                    }else{
+                        mm = Pattern.compile("<input name=\"answer(\\d+)\" type=\"radio\" value=\"(\\w)\"   />&nbsp;&nbsp;(\\w)[\\n\\s]+</label>[\\n\\s]+<a href=\"javascript:void\\(0\\);\" class=\"fl after\" style=\"padding-left:10px;\">"+answer+"</a>").matcher(msg);
+                        if(mm.find()){
+                            Log.i("ADT","question number="+mm.group(1)+"option="+mm.group(2));
+                            params.append("&").append("answer"+mm.group(1)+"=").append(mm.group(2)).append("&").append("answertype"+mm.group(1)+"=0");
+                            answerwqbid += mm.group(1)+",";
+                        }
+                    }
+                    //Log.i("ADT-------------------","answer"+mm.group(1)+" value="+mm.group(2));
+                }
+                Log.i("ADT","answerwqbid="+answerwqbid);
+                if(answerwqbid==null){
+                    flag=true;
+                    throw new Exception("Empty sending answer");
+                }
+
+                String[] a=answerwqbid.split(",");
+                for (int i=1;i<a.length;i+=1) {
+                    if(a[0].equals(a[i])){
+                        flag=true;
+                        throw new Exception("Equal answernum");
+                    }
+                }
+
+                Log.i("ADT","发送答案");
+                Log.i("ADT","dotestfinish");
+                params.append("&answerwqbid=").append(answerwqbid.replace("null",""));
+                Log.i("ADT","params="+params.toString());
+
+
+                resp = (HttpURLConnection) new URL("https://mooc1-2.chaoxing.com/work/addStudentWorkNewWeb?_classId="+clazzid+"&courseid="+courseid+"&token="+enc_work+"&totalQuestionNum="+totalQuestionNum+"&version=1&ua=pc&formType=post&saveStatus=1&pos="+enc+"&value=(290|658)").openConnection();
+                resp.setRequestMethod("POST");
+                resp.setRequestProperty("Cookie",myCookies);
+                resp.setRequestProperty("Referer","https://mooc1-2.chaoxing.com/work/doHomeWorkNew?courseId="+courseid+"&workId="+workId+"&api=1&knowledgeid="+knowledgeid+"&classId="+clazzid+"&oldWorkId="+workId+"&jobid=work-"+workId+"&type=&isphone=false&enc="+enc);
+                resp.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
+                resp.setUseCaches(false);
+                resp.setConnectTimeout(5000);
+                byte[] bytes = params.toString().getBytes();
+                resp.getOutputStream().write(bytes);
+
                 if (resp.getResponseCode()==200) {
-                    is = resp.getInputStream();
-                    reader = new BufferedReader(new InputStreamReader(is));
-                    sb = new StringBuilder();
-                    line = null;
+                    InputStream is = resp.getInputStream();
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+                    StringBuilder sb = new StringBuilder();
+                    String line = null;
                     while ((line = reader.readLine()) != null) {
                         sb.append(line + "\n");
+                        //Log.i("ADT",line);
                     }
                     is.close();
                     resp.disconnect();
                     msg = sb.toString();
-                    //Log.i("ADT",msg);
-
-                    m = Pattern.compile("\"workid\":\"(\\w+)\"").matcher(msg);
-                    if(m.find()){
-                        String workId = m.group(1);
-                        String jobId = "work-"+workId;
-                        m = Pattern.compile("\"enc\":\"(\\w+)\"").matcher(msg);
-                        m.find();
-                        String enc = m.group(1);
-
-                        //获取问题
-                        resp = (HttpURLConnection) new URL("https://mooc1-2.chaoxing.com/workHandle/handle?workId="+workId+"&courseid="+courseid+"&knowledgeid="+knowledgeid+"&userid=&ut=s&classId="+clazzid+"&jobid="+jobId+"&type=&isphone=false&submit=false&enc="+enc+"&utenc="+utenc).openConnection();
-                        resp.setRequestMethod("GET");
-                        resp.setRequestProperty("Referer","https://mooc1-2.chaoxing.com/ananas/modules/work/index.html?v=2018-0126-1905");
-                        resp.setRequestProperty("Cookie",myCookies);
-                        resp.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
-                        resp.setInstanceFollowRedirects(true);
-                        resp.setConnectTimeout(5000);
-
-                        if (resp.getResponseCode()==200) {
-                            is = resp.getInputStream();
-                            reader = new BufferedReader(new InputStreamReader(is));
-                            sb = new StringBuilder();
-                            line = null;
-                            while ((line = reader.readLine()) != null) {
-                                sb.append(line + "\n");
-                                //Log.i("ADT",line);
-                            }
-                            is.close();
-                            resp.disconnect();
-                            msg = sb.toString();
-
-                            m = Pattern.compile("totalQuestionNum=([\\w]+)\"").matcher(msg);
-                            m.find();
-                            String totalQuestionNum = m.group(1);
-
-                            m = Pattern.compile("id=\"workRelationId\" value=\"(\\d+)\"").matcher(msg);
-                            m.find();
-                            String workRelationId = m.group(1);
-
-                            m = Pattern.compile("id=\"enc_work\" value=\"(\\w+)\"").matcher(msg);
-                            m.find();
-                            String enc_work = m.group(1);
-
-                            m = Pattern.compile("name=\"userId\" value=\"(\\d+)\"").matcher(msg);
-                            m.find();
-                            String userid = m.group(1);
-
-                            String answer;
-                            m = Pattern.compile("<div class=\"clearfix\" style=\"line-height: 35px; font-size: 14px;padding-right:15px;\">(.+)</div>").matcher(msg);
-                            StringBuffer params = new StringBuffer();
-                            params.append("pyFlag=").append("&")
-                                    .append("api=1").append("&")
-                                    .append("workAnswerId=").append("&")
-                                    .append("oldSchoolId=").append("&")
-                                    .append("enc=").append("&")
-                                    .append("courseId=").append(courseid).append("&")
-                                    .append("classId=").append(clazzid).append("&")
-                                    .append("totalQuestionNum=").append(totalQuestionNum).append("&")
-                                    .append("fullScore=100.0").append("&")
-                                    .append("knowledgeid=").append(knowledgeid).append("&")
-                                    .append("oldWorkId=").append(workId).append("&")
-                                    .append("jobid=").append("work-"+workId).append("&")
-                                    .append("workRelationId=").append(workRelationId).append("&")
-                                    .append("enc_work=").append(enc_work).append("&")
-                                    .append("userId=").append(userid);
-
-                            Matcher mm;
-                            String answerwqbid=null;
-                            String Answer=null;
-                            int Panduan=0;
-                            while(m.find()){
-
-                                Log.i("ADT","question="+m.group(1));
-                                message("question="+m.group(1),1);
-
-                                answer = getAnswer(m.group(1),0);
-
-                                if(answer==null)throw new Exception("Empty return answer");
-                                Answer += answer;
-                                Log.i("ADT","answer="+answer);
-                                message("answer="+answer,1);
-                                if (answer.contains("√")){
-                                    int i=0;
-                                    mm = Pattern.compile("name=\"answer(\\d+)\" value=\"true\"").matcher(msg);
-                                    while(mm.find()&&(i+=1)<=Panduan);
-                                    {
-                                        Log.i("ADT","question number="+mm.group(1));
-                                        params.append("&").append("answer"+mm.group(1)+"=").append("true").append("&").append("answertype"+mm.group(1)+"=3");
-                                        answerwqbid += mm.group(1)+",";
-                                    }
-                                    Panduan+=1;
-                                }else if(answer.contains("×")){
-                                    int i=0;
-                                    mm = Pattern.compile("name=\"answer(\\d+)\" value=\"false\"").matcher(msg);
-                                    while(mm.find()&&(i+=1)<=Panduan);
-                                    {
-                                        Log.i("ADT","question number="+mm.group(1));
-                                        params.append("&").append("answer"+mm.group(1)+"=").append("false").append("&").append("answertype"+mm.group(1)+"=3");
-                                        answerwqbid += mm.group(1)+",";
-                                    }
-                                    Panduan+=1;
-                                }else{
-                                    mm = Pattern.compile("<input name=\"answer(\\d+)\" type=\"radio\" value=\"(\\w)\"   />&nbsp;&nbsp;(\\w)[\\n\\s]+</label>[\\n\\s]+<a href=\"javascript:void\\(0\\);\" class=\"fl after\" style=\"padding-left:10px;\">"+answer+"</a>").matcher(msg);
-                                    if(mm.find()){
-                                        Log.i("ADT","question number="+mm.group(1)+"option="+mm.group(2));
-                                        params.append("&").append("answer"+mm.group(1)+"=").append(mm.group(2)).append("&").append("answertype"+mm.group(1)+"=0");
-                                        answerwqbid += mm.group(1)+",";
-                                    }
-                                }
-                                //Log.i("ADT-------------------","answer"+mm.group(1)+" value="+mm.group(2));
-                            }
-                            Log.i("ADT","answerwqbid="+answerwqbid);
-                            if(answerwqbid==null){
-                                flag=true;
-                                throw new Exception("Empty sending answer");
-                            }
-
-                            String[] a=answerwqbid.split(",");
-                            for (int i=1;i<a.length;i+=1) {
-                                if(a[0].equals(a[i])){
-                                    flag=true;
-                                    throw new Exception("Equal answernum");
-                                }
-                            }
-
-                            Log.i("ADT","发送答案");
-                            Log.i("ADT","dotestfinish");
-                            params.append("&answerwqbid=").append(answerwqbid.replace("null",""));
-                            Log.i("ADT","params="+params.toString());
-
-
-                            resp = (HttpURLConnection) new URL("https://mooc1-2.chaoxing.com/work/addStudentWorkNewWeb?_classId="+clazzid+"&courseid="+courseid+"&token="+enc_work+"&totalQuestionNum="+totalQuestionNum+"&version=1&ua=pc&formType=post&saveStatus=1&pos="+enc+"&value=(290|658)").openConnection();
-                            resp.setRequestMethod("POST");
-                            resp.setRequestProperty("Cookie",myCookies);
-                            resp.setRequestProperty("Referer","https://mooc1-2.chaoxing.com/work/doHomeWorkNew?courseId="+courseid+"&workId="+workId+"&api=1&knowledgeid="+knowledgeid+"&classId="+clazzid+"&oldWorkId="+workId+"&jobid=work-"+workId+"&type=&isphone=false&enc="+enc);
-                            resp.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
-                            resp.setUseCaches(false);
-                            resp.setConnectTimeout(5000);
-                            byte[] bytes = params.toString().getBytes();
-                            resp.getOutputStream().write(bytes);
-
-                            if (resp.getResponseCode()==200) {
-                                is = resp.getInputStream();
-                                reader = new BufferedReader(new InputStreamReader(is));
-                                sb = new StringBuilder();
-                                line = null;
-                                while ((line = reader.readLine()) != null) {
-                                    sb.append(line + "\n");
-                                    //Log.i("ADT",line);
-                                }
-                                is.close();
-                                resp.disconnect();
-                                msg = sb.toString();
-                                startshua(startindex,myCookies,courseLinks);
-                            }
-                        }
-                    }else{
-                        dotest(url,myCookies,clazzid,courseid,knowledgeid,"2");
-                    }
-
+                    startshua(startindex,myCookies,courseLinks);
                 }
+                //}
+            }else{
+                dotest(url,myCookies,clazzid,courseid,knowledgeid,"2");
             }
+
+            //}
+            //}
         }catch (PatternSyntaxException e){
             e.printStackTrace();
             message("无法找到答案,结束",2);
@@ -840,74 +869,76 @@ public class ChaoXing extends Service implements Serializable {
             resp.setConnectTimeout(5000);
 
 
-            if (resp.getResponseCode()==200) {
-                InputStream is = resp.getInputStream();
-                BufferedReader reader = new BufferedReader(new InputStreamReader(is));
-                StringBuilder sb = new StringBuilder();
-                String line = null;
-                while ((line = reader.readLine()) != null) {
-                    line=line.replaceAll("\\s","");
-                    line=line.replaceAll("\\n","");
-                    sb.append(line);
-                    //Log.i("ADT", line);
-                }
-                is.close();
-                resp.disconnect();
-                String msg = sb.toString();
-                resp.disconnect();
-                Log.i("ADT","------------------------------------------------------------");
-                //Log.i("ADT", msg);
-                Matcher m = Pattern.compile("href=\"(http://www.baidu.com/link\\?url=[\\w\\d-_]+)\"").matcher(msg);
+//            if (resp.getResponseCode()==200) {
+//                InputStream is = resp.getInputStream();
+//                BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+//                StringBuilder sb = new StringBuilder();
+//                String line = null;
+//                while ((line = reader.readLine()) != null) {
+//                    line=line.replaceAll("\\s","");
+//                    line=line.replaceAll("\\n","");
+//                    sb.append(line);
+//                    //Log.i("ADT", line);
+//                }
+//                is.close();
+//                resp.disconnect();
+//                String msg = sb.toString();
+            String msg = getResponeText(resp);
+            resp.disconnect();
+            Log.i("ADT","------------------------------------------------------------");
+            //Log.i("ADT", msg);
+            Matcher m = Pattern.compile("href=\"(http://www.baidu.com/link\\?url=[\\w\\d-_]+)\"").matcher(msg);
 
-                int i=0;
-                while (m.find()&&(i+=1)<3);
-                Log.i("ADT","link="+m.group(1));
-                resp = (HttpURLConnection)new URL(m.group(1)).openConnection();
+            int i=0;
+            while (m.find()&&(i+=1)<3);
+            Log.i("ADT","link="+m.group(1));
+            resp = (HttpURLConnection)new URL(m.group(1)).openConnection();
+            resp.setRequestMethod("GET");
+            resp.setInstanceFollowRedirects(true);
+            resp.setRequestProperty("User-Agent","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
+            resp.setConnectTimeout(5000);
+
+            Log.i("ADT","responsecode="+resp.getResponseCode());
+            if(resp.getResponseCode()==302){
+                String location = resp.getHeaderField("Location");
+                resp = (HttpURLConnection)new URL(location).openConnection();
                 resp.setRequestMethod("GET");
                 resp.setInstanceFollowRedirects(true);
                 resp.setRequestProperty("User-Agent","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
                 resp.setConnectTimeout(5000);
-
-                Log.i("ADT","responsecode="+resp.getResponseCode());
-                if(resp.getResponseCode()==302){
-                    String location = resp.getHeaderField("Location");
-                    resp = (HttpURLConnection)new URL(location).openConnection();
-                    resp.setRequestMethod("GET");
-                    resp.setInstanceFollowRedirects(true);
-                    resp.setRequestProperty("User-Agent","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
-                    resp.setConnectTimeout(5000);
-                }
-                Log.i("ADT","responsecode2="+resp.getResponseCode());
-                if (resp.getResponseCode()==200) {
-                    is = resp.getInputStream();
-                    reader = new BufferedReader(new InputStreamReader(is));
-                    sb = new StringBuilder();
-                    line = null;
-                    while ((line = reader.readLine()) != null) {
-                        sb.append(line);
-                        //Log.i("ADT", line);
-                    }
-                    is.close();
-                    resp.disconnect();
-                    msg = sb.toString();
-
-                    m = Pattern.compile("<div class='resource_content short' style='display: none;'>(.+)</div>").matcher(msg);
-                    i=0;
-                    while (m.find()&&i<=n){
-                        msg = m.group(1);
-                        //Log.i("ADT","return_answer_msg="+msg);
-                        msg = msg.split("<")[0];
-                        String[] t = msg.split(" ");
-                        msg = t[t.length-1];
-                        //Log.i("ADT","return_answer_msg="+msg);
-                        i+=1;
-                    }
-                    resp.disconnect();
-                    if(msg==null)msg=getAnswer1(question,n);
-                    return msg;
-                }
-
             }
+            Log.i("ADT","responsecode2="+resp.getResponseCode());
+//            if (resp.getResponseCode()==200) {
+//                is = resp.getInputStream();
+//                reader = new BufferedReader(new InputStreamReader(is));
+//                sb = new StringBuilder();
+//                line = null;
+//                while ((line = reader.readLine()) != null) {
+//                    sb.append(line);
+//                    //Log.i("ADT", line);
+//                }
+//                is.close();
+//                resp.disconnect();
+//                msg = sb.toString();
+            msg = getResponeText(resp);
+            resp.disconnect();
+
+            m = Pattern.compile("<div class='resource_content short' style='display: none;'>(.+)</div>").matcher(msg);
+            i=0;
+            while (m.find()&&i<=n){
+                msg = m.group(1);
+                //Log.i("ADT","return_answer_msg="+msg);
+                msg = msg.split("<")[0];
+                String[] t = msg.split(" ");
+                msg = t[t.length-1];
+                //Log.i("ADT","return_answer_msg="+msg);
+                i+=1;
+            }
+            if(msg==null)msg=getAnswer1(question,n);
+            return msg;
+            //}
+
+            //}
         }catch (Exception e){
             e.printStackTrace();
         }
@@ -923,79 +954,82 @@ public class ChaoXing extends Service implements Serializable {
             resp.setConnectTimeout(5000);
 
 
-            if (resp.getResponseCode()==200) {
-                InputStream is = resp.getInputStream();
-                BufferedReader reader = new BufferedReader(new InputStreamReader(is));
-                StringBuilder sb = new StringBuilder();
-                String line = null;
-                while ((line = reader.readLine()) != null) {
-                    line=line.replaceAll("\\s","");
-                    line=line.replaceAll("\\n","");
-                    sb.append(line);
-                    //Log.i("ADT", line);
-                }
-                is.close();
-                resp.disconnect();
-                String msg = sb.toString();
-                resp.disconnect();
-                Log.i("ADT","------------------------------------------------------------");
-                //Log.i("ADT", msg);
-                Matcher m = Pattern.compile("<input class=\"resource_url_for_copy\" type=\"hidden\" value=\"([\\w\\/:.\\d]+)\">").matcher(msg);
+//            if (resp.getResponseCode()==200) {
+//                InputStream is = resp.getInputStream();
+//                BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+//                StringBuilder sb = new StringBuilder();
+//                String line = null;
+//                while ((line = reader.readLine()) != null) {
+//                    line=line.replaceAll("\\s","");
+//                    line=line.replaceAll("\\n","");
+//                    sb.append(line);
+//                    //Log.i("ADT", line);
+//                }
+//                is.close();
+//                resp.disconnect();
+//                String msg = sb.toString();
+            String msg = getResponeText(resp);
+            resp.disconnect();
+            Log.i("ADT","------------------------------------------------------------");
+            //Log.i("ADT", msg);
+            Matcher m = Pattern.compile("<input class=\"resource_url_for_copy\" type=\"hidden\" value=\"([\\w\\/:.\\d]+)\">").matcher(msg);
 
-                int i=0;
-                while (m.find()&&(i+=1)<1);
-                Log.i("ADT","link="+m.group(1));
-                resp = (HttpURLConnection)new URL(m.group(1)).openConnection();
+            int i=0;
+            while (m.find()&&(i+=1)<1);
+            Log.i("ADT","link="+m.group(1));
+            resp = (HttpURLConnection)new URL(m.group(1)).openConnection();
+            resp.setRequestMethod("GET");
+            resp.setInstanceFollowRedirects(true);
+            resp.setRequestProperty("User-Agent","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
+            resp.setConnectTimeout(5000);
+
+            Log.i("ADT","responsecode="+resp.getResponseCode());
+            if(resp.getResponseCode()==302){
+                String location = resp.getHeaderField("Location");
+                resp = (HttpURLConnection)new URL(location).openConnection();
                 resp.setRequestMethod("GET");
                 resp.setInstanceFollowRedirects(true);
                 resp.setRequestProperty("User-Agent","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
                 resp.setConnectTimeout(5000);
-
-                Log.i("ADT","responsecode="+resp.getResponseCode());
-                if(resp.getResponseCode()==302){
-                    String location = resp.getHeaderField("Location");
-                    resp = (HttpURLConnection)new URL(location).openConnection();
-                    resp.setRequestMethod("GET");
-                    resp.setInstanceFollowRedirects(true);
-                    resp.setRequestProperty("User-Agent","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36");
-                    resp.setConnectTimeout(5000);
-                }
-                Log.i("ADT","responsecode2="+resp.getResponseCode());
-                if (resp.getResponseCode()==200) {
-                    is = resp.getInputStream();
-                    reader = new BufferedReader(new InputStreamReader(is));
-                    sb = new StringBuilder();
-                    line = null;
-                    while ((line = reader.readLine()) != null) {
-                        sb.append(line);
-                        //Log.i("ADT", line);
-                    }
-                    is.close();
-                    resp.disconnect();
-                    msg = sb.toString();
-
-                    m = Pattern.compile("<div class='resource_content short' style='display: none;'>(.+)</div>").matcher(msg);
-                    i=0;
-                    while (m.find()&&i<=n){
-                        msg = m.group(1);
-                        //Log.i("ADT","return_answer_msg="+msg);
-                        msg = msg.split("<")[0];
-                        String[] t = msg.split(" ");
-                        msg = t[t.length-1];
-                        //Log.i("ADT","return_answer_msg="+msg);
-                        i+=1;
-                    }
-                    resp.disconnect();
-                    return msg;
-                }
-
             }
+            Log.i("ADT","responsecode2="+resp.getResponseCode());
+//            if (resp.getResponseCode()==200) {
+//                is = resp.getInputStream();
+//                reader = new BufferedReader(new InputStreamReader(is));
+//                sb = new StringBuilder();
+//                line = null;
+//                while ((line = reader.readLine()) != null) {
+//                    sb.append(line);
+//                    //Log.i("ADT", line);
+//                }
+//                is.close();
+//                resp.disconnect();
+//                msg = sb.toString();
+
+            msg = getResponeText(resp);
+            resp.disconnect();
+
+            m = Pattern.compile("<div class='resource_content short' style='display: none;'>(.+)</div>").matcher(msg);
+            i=0;
+            while (m.find()&&i<=n){
+                msg = m.group(1);
+                //Log.i("ADT","return_answer_msg="+msg);
+                msg = msg.split("<")[0];
+                String[] t = msg.split(" ");
+                msg = t[t.length-1];
+                //Log.i("ADT","return_answer_msg="+msg);
+                i+=1;
+            }
+            resp.disconnect();
+            return msg;
+            //}
+
+            //}
         }catch (Exception e){
             e.printStackTrace();
         }
         return null;
     }
-
 
     private void message(String string,int what){
         Message msg=new Message();
@@ -1004,5 +1038,27 @@ public class ChaoXing extends Service implements Serializable {
         msg.what=what;
         msg.setData(bd);
         ShuaActivity.handler.sendMessage(msg);
+    }
+
+    private String getResponeText(HttpURLConnection getCourseList) {
+        try {
+            if (getCourseList.getResponseCode() == 200) {
+                InputStream is = getCourseList.getInputStream();
+                BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+                StringBuilder sb = new StringBuilder();
+                String line = null;
+                while ((line = reader.readLine()) != null) {
+                    //Log.i("ADT","line="+line);
+                    sb.append(line + "\n");
+                }
+                is.close();
+                getCourseList.disconnect();
+                return sb.toString();
+            }
+        } catch (Exception e) {
+            Toast.makeText(getApplicationContext(), "检查网络链接", Toast.LENGTH_LONG).show();
+            message("网络问题导致终止",2);
+        }
+        return null;
     }
 }
